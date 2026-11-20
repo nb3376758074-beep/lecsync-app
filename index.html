@@ -128,13 +128,32 @@ textarea.input{resize:vertical;min-height:84px}
 </div>
 <div id="sheet" class="sheet" hidden><div class="sheet-card" id="sheet-card"></div></div>
 <div id="toast" class="toast" hidden></div>
+<script>
+  // 兜底：脚本没跑起来 / 语法不被支持时，不要让用户看到一片黑
+  window.addEventListener('error', function (e) {
+    var b = document.getElementById('boot');
+    if (b && !b.hidden) {
+      b.innerHTML = '<div style="max-width:320px;text-align:center;line-height:1.6">' +
+        '页面脚本加载失败<br><span style="color:#9a9aa4;font-size:13px">' +
+        (e.message || '未知错误') + '</span><br><br>' +
+        '<button onclick="location.reload()" style="padding:8px 16px;border-radius:10px;background:#e9e9ee;color:#0a0a0b;border:0">重新加载</button>' +
+        '</div>';
+    }
+  });
+  setTimeout(function () {
+    var b = document.getElementById('boot');
+    if (b && !b.hidden && b.textContent.indexOf('启动') >= 0) {
+      b.textContent = '正在启动…（如果长时间停在这里，请刷新页面）';
+    }
+  }, 6000);
+</script>
 <script type="module">
 
 async function renderInlineShare() {
   const m = /#share=([^&]+)/.exec(location.hash || '');
   if (!m) return false;
   let d;
-  try { d = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); } catch { return false; }
+  try { d = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); } catch (e) { return false; }
   document.getElementById('boot').hidden = true;
   const appEl = document.getElementById('app'); appEl.hidden = false;
   document.getElementById('nav-title').textContent = '分享';
@@ -146,57 +165,82 @@ async function renderInlineShare() {
       <div class="tiny" style="margin-top:6px">${d.c ? new Date(d.c).toLocaleString('zh-CN') : ''} · ${fmtTime(d.d || 0)} · ${(d.g || []).length} 句</div></div>
     ${dg.summary ? `<div class="card"><div class="h2">摘要</div><p class="muted" style="margin:0">${esc(dg.summary)}</p></div>` : ''}
     <div class="card"><div class="h2">逐句转录</div>
-      ${(d.g || []).map((g) => `<div class="seg"><div class="ts">${fmtTime(g.t0)}</div><div><div>${esc(g.text)}</div>${g.translation ? `<div class="tr">${esc(g.translation)}</div>` : ''}</div></div>`).join('')}
+      ${(d.g || []).map(function (g) { return `<div class="seg"><div class="ts">${fmtTime(g.t0)}</div><div><div>${esc(g.text)}</div>${g.translation ? `<div class="tr">${esc(g.translation)}</div>` : ''}</div></div>`; }).join('')}
     </div>
     <p class="tiny" style="text-align:center">由 LecSync 分享 · 只读</p>`;
   return true;
 }
 
-// 本地模式适配层：后端不可达时，用 IndexedDB/localStorage 提供同等能力。
-// 路径与后端 API 一一对应，前端逻辑不需要分支。
-const LS = {
-  db: 'lcs.local.db',
-  sess: 'lcs.local.session',
+var __defProp = Object.defineProperty;
+var __defProps = Object.defineProperties;
+var __getOwnPropDescs = Object.getOwnPropertyDescriptors;
+var __getOwnPropSymbols = Object.getOwnPropertySymbols;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __propIsEnum = Object.prototype.propertyIsEnumerable;
+var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+var __spreadValues = (a, b) => {
+  for (var prop in b || (b = {}))
+    if (__hasOwnProp.call(b, prop))
+      __defNormalProp(a, prop, b[prop]);
+  if (__getOwnPropSymbols)
+    for (var prop of __getOwnPropSymbols(b)) {
+      if (__propIsEnum.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    }
+  return a;
 };
+var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b));
 
-const uid = (p = '') => p + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
-const now = () => new Date().toISOString();
-const sha256 = async (s) => {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
-  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
+// public/local.js
+var LS = {
+  db: "lcs.local.db",
+  sess: "lcs.local.session"
 };
-
+var uid = (p = "") => p + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+var now = () => (/* @__PURE__ */ new Date()).toISOString();
+var sha256 = async (s) => {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+};
 function loadDb() {
-  try { return JSON.parse(localStorage.getItem(LS.db) || '{}'); } catch { return {}; }
+  try {
+    return JSON.parse(localStorage.getItem(LS.db) || "{}");
+  } catch (e) {
+    return {};
+  }
 }
-function saveDb(db) { localStorage.setItem(LS.db, JSON.stringify(db)); }
+function saveDb(db) {
+  localStorage.setItem(LS.db, JSON.stringify(db));
+}
 function dbInit() {
   const db = loadDb();
-  db.users ||= []; db.sessions ||= []; db.folders ||= []; db.chats ||= []; db.shares ||= []; db.usage ||= [];
+  db.users || (db.users = []);
+  db.sessions || (db.sessions = []);
+  db.folders || (db.folders = []);
+  db.chats || (db.chats = []);
+  db.shares || (db.shares = []);
+  db.usage || (db.usage = []);
   return db;
 }
-let DB = dbInit();
-const persist = () => saveDb(DB);
-const currentUid = () => localStorage.getItem(LS.sess) || '';
-const user = () => DB.users.find((u) => u.id === currentUid());
-
-const fmt = (ms) => {
-  const s = Math.max(0, Math.floor((ms || 0) / 1000));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  return (h ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+var DB = dbInit();
+var persist = () => saveDb(DB);
+var currentUid = () => localStorage.getItem(LS.sess) || "";
+var user = () => DB.users.find((u) => u.id === currentUid());
+var fmt = (ms) => {
+  const s = Math.max(0, Math.floor((ms || 0) / 1e3));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return (h ? String(h).padStart(2, "0") + ":" : "") + String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
 };
-
-// ---- 本地纪要算法 ----
-const STOP = new Set('的 了 和 是 在 我 有 就 不 人 都 一 一个 上 也 很 到 说 要 去 你 会 着 没有 看 好 自己 这 那 我们 他们 什么 这个 那个 因为 所以 但是 如果 然后 现在 可以 就是 还是 已经 这样 那样 时候 the a an and or but if then of in on at for with by to is are was were be it this that'.split(' '));
+var STOP = new Set("的 了 和 是 在 我 有 就 不 人 都 一 一个 上 也 很 到 说 要 去 你 会 着 没有 看 好 自己 这 那 我们 他们 什么 这个 那个 因为 所以 但是 如果 然后 现在 可以 就是 还是 已经 这样 那样 时候 the a an and or but if then of in on at for with by to is are was were be it this that".split(" "));
 function tokens(text) {
   const out = [];
-  for (const w of (String(text).match(/[\u4e00-\u9fff]{2,4}/g) || [])) if (!STOP.has(w)) out.push(w);
-  for (const w of (String(text).toLowerCase().match(/[a-z][a-z'-]{2,}/g) || [])) if (!STOP.has(w)) out.push(w);
+  for (const w of String(text).match(/[\u4e00-\u9fff]{2,4}/g) || []) if (!STOP.has(w)) out.push(w);
+  for (const w of String(text).toLowerCase().match(/[a-z][a-z'-]{2,}/g) || []) if (!STOP.has(w)) out.push(w);
   return out;
 }
 function digestOf(segs) {
-  const text = segs.map((s) => s.text).join(' ');
-  const freq = new Map();
+  const text = segs.map((s) => s.text).join(" ");
+  const freq = /* @__PURE__ */ new Map();
   for (const w of tokens(text)) freq.set(w, (freq.get(w) || 0) + 1);
   const kw = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([w]) => w);
   const sents = (text.match(/[^。！？!?.\n]+[。！？!?.]?/g) || []).map((s) => s.trim()).filter((s) => s.length > 1);
@@ -205,276 +249,325 @@ function digestOf(segs) {
     if (/\d/.test(s)) sc += 0.4;
     return { s, i, sc };
   });
-  const top = scored.sort((a, b) => b.sc - a.sc).slice(0, 5).sort((a, b) => a.i - b.i).map((x) => x.s.replace(/[。！？]$/, ''));
+  const top = scored.sort((a, b) => b.sc - a.sc).slice(0, 5).sort((a, b) => a.i - b.i).map((x) => x.s.replace(/[。！？]$/, ""));
   const todos = sents.filter((s) => /(要|需要|应该|记得|安排|完成|跟进|确认|准备|下周|明天|todo|need to|should|follow|schedule)/i.test(s)).slice(0, 6);
   return {
-    summary: top.join('；').slice(0, 400) || '（内容过短）',
+    summary: top.join("；").slice(0, 400) || "（内容过短）",
     outline: top.map((s, i) => `${i + 1}. ${s.slice(0, 60)}`),
     points: top.slice(0, 5),
     todos: todos.map((t) => ({ text: t, done: false })),
     keywords: kw,
-    generated_by: '本地规则（离线模式）',
-    generated_at: now(),
+    generated_by: "本地规则（离线模式）",
+    generated_at: now()
   };
 }
-
-// ---- 本地导出 ----
-const srtT = (ms) => {
+var srtT = (ms) => {
   const t = Math.max(0, Math.round(ms || 0));
-  return `${String(Math.floor(t / 3600000)).padStart(2, '0')}:${String(Math.floor((t % 3600000) / 60000)).padStart(2, '0')}:${String(Math.floor((t % 60000) / 1000)).padStart(2, '0')},${String(t % 1000).padStart(3, '0')}`;
+  return `${String(Math.floor(t / 36e5)).padStart(2, "0")}:${String(Math.floor(t % 36e5 / 6e4)).padStart(2, "0")}:${String(Math.floor(t % 6e4 / 1e3)).padStart(2, "0")},${String(t % 1e3).padStart(3, "0")}`;
 };
-function localExport(s, format = 'txt') {
+function localExport(s, format = "txt") {
+  var _a, _b, _c;
   const segs = s.segments || [];
   const d = s.digest || {};
-  if (format === 'srt') return segs.map((g, i) => `${i + 1}\n${srtT(g.t0)} --> ${srtT(g.t1 || (g.t0 || 0) + 3000)}\n${g.text}${g.translation ? '\n' + g.translation : ''}\n`).join('\n');
-  if (format === 'vtt') return 'WEBVTT\n\n' + segs.map((g) => `${srtT(g.t0).replace(',', '.')} --> ${srtT(g.t1 || (g.t0 || 0) + 3000).replace(',', '.')}\n${g.text}${g.translation ? '\n' + g.translation : ''}\n`).join('\n');
-  if (format === 'json') return JSON.stringify(s, null, 2);
-  if (format === 'md') {
-    const L = [`# ${s.title}`, '', `- 时间：${new Date(s.created_at).toLocaleString('zh-CN')}`, `- 时长：${fmt(s.duration_ms)}`, ''];
-    if (d.summary) L.push('## 摘要', '', d.summary, '');
-    if (d.points?.length) L.push('## 要点', '', ...d.points.map((p) => `- ${p}`), '');
-    if (d.todos?.length) L.push('## 待办', '', ...d.todos.map((t) => `- [${t.done ? 'x' : ' '}] ${t.text}`), '');
-    if (d.keywords?.length) L.push('## 关键词', '', d.keywords.map((k) => `\`${k}\``).join(' '), '');
-    L.push('## 转录', '');
-    for (const g of segs) L.push(`**${fmt(g.t0)}** ${g.text}`, g.translation ? `> ${g.translation}` : '', '');
-    return L.join('\n');
+  if (format === "srt") return segs.map((g, i) => `${i + 1}
+${srtT(g.t0)} --> ${srtT(g.t1 || (g.t0 || 0) + 3e3)}
+${g.text}${g.translation ? "\n" + g.translation : ""}
+`).join("\n");
+  if (format === "vtt") return "WEBVTT\n\n" + segs.map((g) => `${srtT(g.t0).replace(",", ".")} --> ${srtT(g.t1 || (g.t0 || 0) + 3e3).replace(",", ".")}
+${g.text}${g.translation ? "\n" + g.translation : ""}
+`).join("\n");
+  if (format === "json") return JSON.stringify(s, null, 2);
+  if (format === "md") {
+    const L = [`# ${s.title}`, "", `- 时间：${new Date(s.created_at).toLocaleString("zh-CN")}`, `- 时长：${fmt(s.duration_ms)}`, ""];
+    if (d.summary) L.push("## 摘要", "", d.summary, "");
+    if ((_a = d.points) == null ? void 0 : _a.length) L.push("## 要点", "", ...d.points.map((p) => `- ${p}`), "");
+    if ((_b = d.todos) == null ? void 0 : _b.length) L.push("## 待办", "", ...d.todos.map((t) => `- [${t.done ? "x" : " "}] ${t.text}`), "");
+    if ((_c = d.keywords) == null ? void 0 : _c.length) L.push("## 关键词", "", d.keywords.map((k) => `\`${k}\``).join(" "), "");
+    L.push("## 转录", "");
+    for (const g of segs) L.push(`**${fmt(g.t0)}** ${g.text}`, g.translation ? `> ${g.translation}` : "", "");
+    return L.join("\n");
   }
-  return segs.map((g) => `[${fmt(g.t0)}] ${g.text}`).join('\n');
+  return segs.map((g) => `[${fmt(g.t0)}] ${g.text}`).join("\n");
 }
-
 function localShareUrl(s) {
   const payload = { t: s.title, c: s.created_at, d: s.duration_ms, g: s.segments, dg: s.digest };
   const b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
-  return location.origin + location.pathname + '#share=' + b64;
+  return location.origin + location.pathname + "#share=" + b64;
 }
-
-// ---- 翻译（离线模式走 MyMemory，CORS 友好）----
 async function translateLocal(text, target) {
-  const pair = `zh-CN|${target || 'en'}`;
+  var _a;
+  const pair = `zh-CN|${target || "en"}`;
   const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(String(text).slice(0, 480))}&langpair=${encodeURIComponent(pair)}`;
   const r = await fetch(url);
-  if (!r.ok) throw new Error('翻译服务不可达');
+  if (!r.ok) throw new Error("翻译服务不可达");
   const j = await r.json();
-  const out = j?.responseData?.translatedText;
-  if (!out) throw new Error('翻译失败');
+  const out = (_a = j == null ? void 0 : j.responseData) == null ? void 0 : _a.translatedText;
+  if (!out) throw new Error("翻译失败");
   return out;
 }
-
-const notReady = (msg) => { const e = new Error(msg); e.status = 400; throw e; };
-
-// ---- 主体：路由映射 ----
+var notReady = (msg) => {
+  const e = new Error(msg);
+  e.status = 400;
+  throw e;
+};
 async function localApi(path, opts = {}) {
+  var _a, _b;
   DB = dbInit();
-  const method = (opts.method || 'GET').toUpperCase();
-  const body = typeof opts.body === 'string' ? JSON.parse(opts.body || '{}') : (opts.body || {});
-  const [p, qs] = path.split('?');
-  const q = new URLSearchParams(qs || '');
-
-  if (p === '/api/health') return { ok: true, version: '1.0.0-local', mode: 'local', asr: false, llm: false };
-  if (p === '/api/version') return { buildId: 'local', server: 'local' };
-
-  // 认证
-  if (p === '/api/auth/register') {
-    const email = String(body.email || '').trim().toLowerCase();
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) notReady('邮箱格式不正确');
-    if (String(body.password || '').length < 6) notReady('密码至少 6 位');
-    if (DB.users.some((u) => u.email === email)) notReady('该邮箱已注册');
-    const u = { id: uid('u_'), email, name: body.name || email.split('@')[0], hash: await sha256(body.password), created_at: now(), plan: 'pro', settings: {} };
-    DB.users.push(u); persist(); localStorage.setItem(LS.sess, u.id);
-    return { token: 'local', user: { ...u, hash: undefined } };
-  }
-  if (p === '/api/auth/mobile') {
-    const email = String(body.email || '').trim().toLowerCase();
-    const u = DB.users.find((x) => x.email === email);
-    if (!u || u.hash !== await sha256(body.password || '')) notReady('邮箱或密码错误');
+  const method = (opts.method || "GET").toUpperCase();
+  const body = typeof opts.body === "string" ? JSON.parse(opts.body || "{}") : opts.body || {};
+  const [p, qs] = path.split("?");
+  const q = new URLSearchParams(qs || "");
+  if (p === "/api/health") return { ok: true, version: "1.0.0-local", mode: "local", asr: false, llm: false };
+  if (p === "/api/version") return { buildId: "local", server: "local" };
+  if (p === "/api/auth/register") {
+    const email = String(body.email || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) notReady("邮箱格式不正确");
+    if (String(body.password || "").length < 6) notReady("密码至少 6 位");
+    if (DB.users.some((u2) => u2.email === email)) notReady("该邮箱已注册");
+    const u = { id: uid("u_"), email, name: body.name || email.split("@")[0], hash: await sha256(body.password), created_at: now(), plan: "pro", settings: {} };
+    DB.users.push(u);
+    persist();
     localStorage.setItem(LS.sess, u.id);
-    return { token: 'local', user: { ...u, hash: undefined } };
+    return { token: "local", user: __spreadProps(__spreadValues({}, u), { hash: void 0 }) };
   }
-  if (p === '/api/auth/refresh' || p === '/api/auth/logout') return { ok: true, token: 'local' };
-
+  if (p === "/api/auth/mobile") {
+    const email = String(body.email || "").trim().toLowerCase();
+    const u = DB.users.find((x) => x.email === email);
+    if (!u || u.hash !== await sha256(body.password || "")) notReady("邮箱或密码错误");
+    localStorage.setItem(LS.sess, u.id);
+    return { token: "local", user: __spreadProps(__spreadValues({}, u), { hash: void 0 }) };
+  }
+  if (p === "/api/auth/refresh" || p === "/api/auth/logout") return { ok: true, token: "local" };
   const me = user();
-  const need = () => { if (!me) { const e = new Error('未登录'); e.status = 401; throw e; } };
-
-  if (p === '/api/user/profile') { need(); return { user: { ...me, hash: undefined }, usage: localUsage() }; }
-  if (p === '/api/user/settings') {
+  const need = () => {
+    if (!me) {
+      const e2 = new Error("未登录");
+      e2.status = 401;
+      throw e2;
+    }
+  };
+  if (p === "/api/user/profile") {
     need();
-    if (method === 'PATCH') {
-      me.settings = { ...(me.settings || {}) };
-      for (const k of ['lang', 'target_lang', 'bilingual', 'asr_base', 'asr_model', 'llm_base', 'llm_model']) {
-        if (body[k] !== undefined) me.settings[k] = body[k];
+    return { user: __spreadProps(__spreadValues({}, me), { hash: void 0 }), usage: localUsage() };
+  }
+  if (p === "/api/user/settings") {
+    need();
+    if (method === "PATCH") {
+      me.settings = __spreadValues({}, me.settings || {});
+      for (const k of ["lang", "target_lang", "bilingual", "asr_base", "asr_model", "llm_base", "llm_model"]) {
+        if (body[k] !== void 0) me.settings[k] = body[k];
       }
       persist();
     }
     return { settings: me.settings || {}, caps: { asr: false, llm: false } };
   }
-  if (p === '/api/usage/current') { need(); return { plan: 'pro', unlimited: true, ...localUsage() }; }
-
-  // 会话
-  if (p === '/api/sessions' && method === 'GET') {
+  if (p === "/api/usage/current") {
+    need();
+    return __spreadValues({ plan: "pro", unlimited: true }, localUsage());
+  }
+  if (p === "/api/sessions" && method === "GET") {
     need();
     let list = DB.sessions.filter((s) => s.user_id === me.id && !s.deleted_at);
-    const kw = (q.get('q') || '').toLowerCase();
+    const kw = (q.get("q") || "").toLowerCase();
     if (kw) list = list.filter((s) => s.title.toLowerCase().includes(kw) || s.segments.some((g) => g.text.toLowerCase().includes(kw)));
-    list.sort((a, b) => (b.updated_at || '').localeCompare(a.updated_at || ''));
+    list.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
     return { items: list.map(brief), total: list.length };
   }
-  if (p === '/api/sessions' && method === 'POST') {
+  if (p === "/api/sessions" && method === "POST") {
     need();
-    const s = { id: uid('s_'), user_id: me.id, title: body.title || '未命名录音', created_at: now(), updated_at: now(), duration_ms: body.duration_ms || 0, lang: body.lang || 'auto', target_lang: null, segments: [], digest: null, deleted_at: null, tags: [] };
-    DB.sessions.push(s); persist();
-    return { ...brief(s), segments: [], digest: null };
+    const s = { id: uid("s_"), user_id: me.id, title: body.title || "未命名录音", created_at: now(), updated_at: now(), duration_ms: body.duration_ms || 0, lang: body.lang || "auto", target_lang: null, segments: [], digest: null, deleted_at: null, tags: [] };
+    DB.sessions.push(s);
+    persist();
+    return __spreadProps(__spreadValues({}, brief(s)), { segments: [], digest: null });
   }
   let m = p.match(/^\/api\/sessions\/([\w-]+)$/);
   if (m) {
     need();
     const s = DB.sessions.find((x) => x.id === m[1] && x.user_id === me.id);
-    if (!s) notReady('会话不存在');
-    if (method === 'GET') return s;
-    if (method === 'PATCH') {
-      Object.assign(s, { ...body, updated_at: now() });
-      if (body.title !== undefined) s.title = String(body.title).slice(0, 120);
-      persist(); return brief(s);
+    if (!s) notReady("会话不存在");
+    if (method === "GET") return s;
+    if (method === "PATCH") {
+      Object.assign(s, __spreadProps(__spreadValues({}, body), { updated_at: now() }));
+      if (body.title !== void 0) s.title = String(body.title).slice(0, 120);
+      persist();
+      return brief(s);
     }
-    if (method === 'DELETE') { s.deleted_at = now(); persist(); return { ok: true }; }
+    if (method === "DELETE") {
+      s.deleted_at = now();
+      persist();
+      return { ok: true };
+    }
   }
   m = p.match(/^\/api\/sessions\/([\w-]+)\/digest$/);
-  if (m && method === 'POST') {
+  if (m && method === "POST") {
     need();
     const s = DB.sessions.find((x) => x.id === m[1] && x.user_id === me.id);
-    if (!s) notReady('会话不存在');
-    s.digest = digestOf(s.segments); s.updated_at = now(); persist();
+    if (!s) notReady("会话不存在");
+    s.digest = digestOf(s.segments);
+    s.updated_at = now();
+    persist();
     return s.digest;
   }
   m = p.match(/^\/api\/sessions\/([\w-]+)\/translate$/);
-  if (m && method === 'POST') {
+  if (m && method === "POST") {
     need();
     const s = DB.sessions.find((x) => x.id === m[1] && x.user_id === me.id);
-    if (!s) notReady('会话不存在');
-    const target = body.target || 'en';
+    if (!s) notReady("会话不存在");
+    const target = body.target || "en";
     let n = 0;
     for (const g of s.segments.slice(0, 60)) {
       if (g.translation) continue;
-      try { g.translation = await translateLocal(g.text, target); n++; } catch { break; }
+      try {
+        g.translation = await translateLocal(g.text, target);
+        n++;
+      } catch (e2) {
+        break;
+      }
     }
-    s.target_lang = target; persist();
+    s.target_lang = target;
+    persist();
     return { translated: n, segments: s.segments, target_lang: target };
   }
-
-  // 回收站
-  if (p === '/api/trash' && method === 'GET') { need(); return DB.sessions.filter((s) => s.user_id === me.id && s.deleted_at).map(brief); }
-  if (p === '/api/trash/restore' && method === 'POST') {
+  if (p === "/api/trash" && method === "GET") {
+    need();
+    return DB.sessions.filter((s) => s.user_id === me.id && s.deleted_at).map(brief);
+  }
+  if (p === "/api/trash/restore" && method === "POST") {
     need();
     const s = DB.sessions.find((x) => x.id === body.id && x.user_id === me.id);
-    if (!s) notReady('会话不存在');
-    s.deleted_at = null; persist(); return brief(s);
+    if (!s) notReady("会话不存在");
+    s.deleted_at = null;
+    persist();
+    return brief(s);
   }
-
-  // 逐句
-  if (p === '/api/transcription/segments' && method === 'GET') {
+  if (p === "/api/transcription/segments" && method === "GET") {
     need();
-    const s = DB.sessions.find((x) => x.id === q.get('sessionId') && x.user_id === me.id);
-    if (!s) notReady('会话不存在');
+    const s = DB.sessions.find((x) => x.id === q.get("sessionId") && x.user_id === me.id);
+    if (!s) notReady("会话不存在");
     return { segments: s.segments, duration_ms: s.duration_ms };
   }
-  if (p === '/api/transcription/segments' && method === 'POST') {
+  if (p === "/api/transcription/segments" && method === "POST") {
     need();
     const s = DB.sessions.find((x) => x.id === body.sessionId && x.user_id === me.id);
-    if (!s) notReady('会话不存在');
-    const segs = (Array.isArray(body.segments) ? body.segments : [body.segment || body])
-      .filter((x) => x && String(x.text || '').trim())
-      .map((x) => ({ id: uid('g_'), t0: Number(x.t0 || 0), t1: Number(x.t1 || 0), text: String(x.text).slice(0, 4000), translation: x.translation || null }));
+    if (!s) notReady("会话不存在");
+    const segs = (Array.isArray(body.segments) ? body.segments : [body.segment || body]).filter((x) => x && String(x.text || "").trim()).map((x) => ({ id: uid("g_"), t0: Number(x.t0 || 0), t1: Number(x.t1 || 0), text: String(x.text).slice(0, 4e3), translation: x.translation || null }));
     s.segments.push(...segs);
     s.duration_ms = Math.max(s.duration_ms || 0, ...s.segments.map((x) => x.t1 || 0), 0);
-    s.updated_at = now(); persist();
+    s.updated_at = now();
+    persist();
     localBump(0);
     return { segments: segs, total: s.segments.length };
   }
   m = p.match(/^\/api\/transcription\/segments\/([\w-]+)$/);
   if (m) {
     need();
-    const s = DB.sessions.find((x) => x.user_id === me.id && x.segments.some((g) => g.id === m[1]));
-    if (!s) notReady('语句不存在');
+    const s = DB.sessions.find((x) => x.user_id === me.id && x.segments.some((g2) => g2.id === m[1]));
+    if (!s) notReady("语句不存在");
     const g = s.segments.find((x) => x.id === m[1]);
-    if (method === 'PATCH') { Object.assign(g, body); persist(); return g; }
-    if (method === 'DELETE') { s.segments = s.segments.filter((x) => x.id !== m[1]); persist(); return { ok: true }; }
+    if (method === "PATCH") {
+      Object.assign(g, body);
+      persist();
+      return g;
+    }
+    if (method === "DELETE") {
+      s.segments = s.segments.filter((x) => x.id !== m[1]);
+      persist();
+      return { ok: true };
+    }
   }
-  if (p === '/api/transcription/upload' && method === 'POST') {
+  if (p === "/api/transcription/upload" && method === "POST") {
     need();
-    const s = { id: uid('s_'), user_id: me.id, title: body.get?.('title') || '上传录音', created_at: now(), updated_at: now(), duration_ms: Number(body.get?.('duration_ms') || 0), lang: 'auto', segments: [], digest: null, deleted_at: null };
-    DB.sessions.push(s); persist();
-    return { session: brief(s), segments: [], digest: null, asr: { ok: false, reason: '离线模式不支持服务端转写' } };
+    const s = { id: uid("s_"), user_id: me.id, title: ((_a = body.get) == null ? void 0 : _a.call(body, "title")) || "上传录音", created_at: now(), updated_at: now(), duration_ms: Number(((_b = body.get) == null ? void 0 : _b.call(body, "duration_ms")) || 0), lang: "auto", segments: [], digest: null, deleted_at: null };
+    DB.sessions.push(s);
+    persist();
+    return { session: brief(s), segments: [], digest: null, asr: { ok: false, reason: "离线模式不支持服务端转写" } };
   }
-  if (p === '/api/transcribe') return { ok: false, code: 'ASR_NOT_CONFIGURED', reason: '离线模式不支持服务端转写' };
-
-  // 翻译
-  if (p === '/api/translate' && method === 'POST') {
-    const text = await translateLocal(body.text || '', body.target || 'en');
-    return { text, target: body.target || 'en', engine: 'mymemory' };
+  if (p === "/api/transcribe") return { ok: false, code: "ASR_NOT_CONFIGURED", reason: "离线模式不支持服务端转写" };
+  if (p === "/api/translate" && method === "POST") {
+    const text = await translateLocal(body.text || "", body.target || "en");
+    return { text, target: body.target || "en", engine: "mymemory" };
   }
-
-  // AI 对话（本地检索）
-  if (p === '/api/chat/sessions') { need(); return DB.chats.filter((c) => c.user_id === me.id); }
-  if (p === '/api/chat' && method === 'POST') {
+  if (p === "/api/chat/sessions") {
     need();
-    const question = String(body.message || '').trim();
-    if (!question) notReady('消息为空');
+    return DB.chats.filter((c) => c.user_id === me.id);
+  }
+  if (p === "/api/chat" && method === "POST") {
+    need();
+    const question = String(body.message || "").trim();
+    if (!question) notReady("消息为空");
     let convo = body.chatId ? DB.chats.find((c) => c.id === body.chatId) : null;
-    if (!convo) { convo = { id: uid('c_'), user_id: me.id, session_id: body.sessionId || null, title: question.slice(0, 40), messages: [], created_at: now(), updated_at: now() }; DB.chats.push(convo); }
-    convo.messages.push({ role: 'user', content: question, ts: now() });
+    if (!convo) {
+      convo = { id: uid("c_"), user_id: me.id, session_id: body.sessionId || null, title: question.slice(0, 40), messages: [], created_at: now(), updated_at: now() };
+      DB.chats.push(convo);
+    }
+    convo.messages.push({ role: "user", content: question, ts: now() });
     const s = body.sessionId ? DB.sessions.find((x) => x.id === body.sessionId) : null;
     let answer;
     if (s) {
-      const q = tokens(question);
-      const hits = s.segments.map((g) => ({ g, sc: q.filter((t) => g.text.includes(t)).length })).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 5);
-      answer = hits.length ? '根据转录，相关原话：\n\n' + hits.map((x) => `[${fmt(x.g.t0)}] ${x.g.text}`).join('\n') : '转录里没有找到直接相关的内容。';
+      const q2 = tokens(question);
+      const hits = s.segments.map((g) => ({ g, sc: q2.filter((t) => g.text.includes(t)).length })).filter((x) => x.sc > 0).sort((a, b) => b.sc - a.sc).slice(0, 5);
+      answer = hits.length ? "根据转录，相关原话：\n\n" + hits.map((x) => `[${fmt(x.g.t0)}] ${x.g.text}`).join("\n") : "转录里没有找到直接相关的内容。";
     } else {
       const all = DB.sessions.filter((x) => x.user_id === me.id);
-      const q = tokens(question);
+      const q2 = tokens(question);
       const hits = [];
-      for (const s2 of all) for (const g of s2.segments) { const sc = q.filter((t) => g.text.includes(t)).length; if (sc) hits.push({ s2, g, sc }); }
+      for (const s2 of all) for (const g of s2.segments) {
+        const sc = q2.filter((t) => g.text.includes(t)).length;
+        if (sc) hits.push({ s2, g, sc });
+      }
       hits.sort((a, b) => b.sc - a.sc);
-      answer = hits.length ? '在你的记录里找到：\n\n' + hits.slice(0, 6).map((h) => `《${h.s2.title}》${fmt(h.g.t0)} ${h.g.text}`).join('\n') : '没有找到相关内容。';
+      answer = hits.length ? "在你的记录里找到：\n\n" + hits.slice(0, 6).map((h) => `《${h.s2.title}》${fmt(h.g.t0)} ${h.g.text}`).join("\n") : "没有找到相关内容。";
     }
-    const msg = { role: 'assistant', content: answer, ts: now() };
-    convo.messages.push(msg); convo.updated_at = now(); persist();
-    return { chat_id: convo.id, message: msg, engine: 'local-retrieval', messages: convo.messages };
+    const msg = { role: "assistant", content: answer, ts: now() };
+    convo.messages.push(msg);
+    convo.updated_at = now();
+    persist();
+    return { chat_id: convo.id, message: msg, engine: "local-retrieval", messages: convo.messages };
   }
   m = p.match(/^\/api\/chat\/([\w-]+)$/);
-  if (m && method === 'DELETE') { need(); DB.chats = DB.chats.filter((c) => c.id !== m[1] || c.user_id !== me.id); persist(); return { ok: true }; }
-
-  // 分享（离线：内联数据链接）
-  if (p === '/api/share/link' && method === 'POST') {
+  if (m && method === "DELETE") {
+    need();
+    DB.chats = DB.chats.filter((c) => c.id !== m[1] || c.user_id !== me.id);
+    persist();
+    return { ok: true };
+  }
+  if (p === "/api/share/link" && method === "POST") {
     need();
     const s = DB.sessions.find((x) => x.id === body.sessionId && x.user_id === me.id);
-    if (!s) notReady('会话不存在');
-    return { token: 'inline', url: localShareUrl(s), inline: true };
+    if (!s) notReady("会话不存在");
+    return { token: "inline", url: localShareUrl(s), inline: true };
   }
-
-  if (p === '/api/announcements/active') return [];
-  if (p === '/api/keywords/extract') {
-    const text = String(body.text || '');
-    const freq = new Map();
+  if (p === "/api/announcements/active") return [];
+  if (p === "/api/keywords/extract") {
+    const text = String(body.text || "");
+    const freq = /* @__PURE__ */ new Map();
     for (const w of tokens(text)) freq.set(w, (freq.get(w) || 0) + 1);
     return { keywords: [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 15).map(([word, count]) => ({ word, count })) };
   }
-
-  const e = new Error('离线模式不支持该接口：' + p);
+  const e = new Error("离线模式不支持该接口：" + p);
   e.status = 404;
   throw e;
 }
-
 function brief(s) {
   return {
-    id: s.id, title: s.title, created_at: s.created_at, updated_at: s.updated_at, duration_ms: s.duration_ms || 0,
-    lang: s.lang || 'auto', target_lang: s.target_lang || null, deleted_at: s.deleted_at || null,
-    segment_count: (s.segments || []).length, has_digest: Boolean(s.digest),
-    preview: (s.segments || []).map((x) => x.text).join(' ').slice(0, 120), tags: s.tags || [],
+    id: s.id,
+    title: s.title,
+    created_at: s.created_at,
+    updated_at: s.updated_at,
+    duration_ms: s.duration_ms || 0,
+    lang: s.lang || "auto",
+    target_lang: s.target_lang || null,
+    deleted_at: s.deleted_at || null,
+    segment_count: (s.segments || []).length,
+    has_digest: Boolean(s.digest),
+    preview: (s.segments || []).map((x) => x.text).join(" ").slice(0, 120),
+    tags: s.tags || []
   };
 }
 function localUsage() {
   const uidNow = currentUid();
   const rows = DB.usage.filter((u) => u.user_id === uidNow);
-  const day = new Date().toISOString().slice(0, 10);
+  const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   const month = day.slice(0, 7);
   return {
     today_seconds: rows.filter((r) => r.day === day).reduce((a, r) => a + r.seconds, 0),
@@ -482,174 +575,215 @@ function localUsage() {
     month_seconds: rows.filter((r) => r.day.startsWith(month)).reduce((a, r) => a + r.seconds, 0),
     month_ai: rows.filter((r) => r.day.startsWith(month)).reduce((a, r) => a + r.ai, 0),
     total_seconds: rows.reduce((a, r) => a + r.seconds, 0),
-    total_ai: rows.reduce((a, r) => a + r.ai, 0),
+    total_ai: rows.reduce((a, r) => a + r.ai, 0)
   };
 }
 function localBump(seconds = 0, ai = 0) {
-  const id = currentUid(); if (!id) return;
-  const day = new Date().toISOString().slice(0, 10);
+  const id = currentUid();
+  if (!id) return;
+  const day = (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
   let row = DB.usage.find((u) => u.user_id === id && u.day === day);
-  if (!row) { row = { user_id: id, day, seconds: 0, ai: 0 }; DB.usage.push(row); }
-  row.seconds += seconds; row.ai += ai; persist();
+  if (!row) {
+    row = { user_id: id, day, seconds: 0, ai: 0 };
+    DB.usage.push(row);
+  }
+  row.seconds += seconds;
+  row.ai += ai;
+  persist();
 }
-function localIsLoggedIn() { return Boolean(currentUid() && user()); }
-function localUser() { const u = user(); return u ? { ...u, hash: undefined } : null; }
-function localPullSession(id) { DB = dbInit(); return DB.sessions.find((s) => s.id === id && s.user_id === currentUid()); }
+function localIsLoggedIn() {
+  return Boolean(currentUid() && user());
+}
+function localUser() {
+  const u = user();
+  return u ? __spreadProps(__spreadValues({}, u), { hash: void 0 }) : null;
+}
 
-// LecSync 重制版前端（原生 ES 模块，无构建步骤）
-
-const $ = (s, r = document) => r.querySelector(s);
-const $ = (s, r = document) => [...r.querySelectorAll(s)];
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const fmtTime = (ms) => {
-  const s = Math.max(0, Math.floor((ms || 0) / 1000));
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
-  return (h ? String(h).padStart(2, '0') + ':' : '') + String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+// public/app.js
+var $ = (s, r = document) => r.querySelector(s);
+var $ = (s, r = document) => [...r.querySelectorAll(s)];
+var esc = (s) => String(s != null ? s : "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+var fmtTime = (ms) => {
+  const s = Math.max(0, Math.floor((ms || 0) / 1e3));
+  const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+  return (h ? String(h).padStart(2, "0") + ":" : "") + String(m).padStart(2, "0") + ":" + String(sec).padStart(2, "0");
 };
-const fmtDate = (iso) => {
-  if (!iso) return '';
-  const d = new Date(iso), n = new Date();
+var fmtDate = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso), n = /* @__PURE__ */ new Date();
   const same = d.toDateString() === n.toDateString();
-  return same ? d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    : d.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+  return same ? d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" }) : d.toLocaleDateString("zh-CN", { month: "2-digit", day: "2-digit" });
 };
-const toast = (msg, ms = 2200) => {
-  const t = $('#toast'); t.textContent = msg; t.hidden = false;
-  clearTimeout(t._t); t._t = setTimeout(() => (t.hidden = true), ms);
+var toast = (msg, ms = 2200) => {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.hidden = false;
+  clearTimeout(t._t);
+  t._t = setTimeout(() => t.hidden = true, ms);
 };
-const sheet = (html) => {
-  $('#sheet-card').innerHTML = html; $('#sheet').hidden = false;
+var sheet = (html) => {
+  $("#sheet-card").innerHTML = html;
+  $("#sheet").hidden = false;
 };
-const closeSheet = () => ($('#sheet').hidden = true);
-
-// ---------------- 状态 ----------------
-const state = {
-  token: localStorage.getItem('lcs.token') || '',
+var closeSheet = () => $("#sheet").hidden = true;
+var state = {
+  token: localStorage.getItem("lcs.token") || "",
   user: null,
   caps: { asr: false, llm: false },
-  tab: 'record',
-  view: 'record',
+  tab: "record",
+  view: "record",
   sessions: [],
   current: null,
   chat: null,
   recording: null,
   settings: {},
   usage: null,
-  mode: 'remote', // remote | local（后端不可达时自动降级）
-  apiBase: localStorage.getItem('lcs.api') || '',
+  mode: "remote",
+  // remote | local（后端不可达时自动降级）
+  apiBase: localStorage.getItem("lcs.api") || ""
 };
-
 async function remoteCall(path, opts = {}) {
   const headers = opts.headers || {};
-  if (state.token) headers.authorization = 'Bearer ' + state.token;
+  if (state.token) headers.authorization = "Bearer " + state.token;
   let body = opts.body;
-  if (body && !(body instanceof FormData) && typeof body !== 'string') {
-    headers['content-type'] = 'application/json';
+  if (body && !(body instanceof FormData) && typeof body !== "string") {
+    headers["content-type"] = "application/json";
     body = JSON.stringify(body);
   }
-  const r = await fetch((state.apiBase || '') + path, { method: opts.method || 'GET', headers, body });
-  const ct = r.headers.get('content-type') || '';
-  const data = ct.includes('json') ? await r.json().catch(() => ({})) : await r.text();
+  const r = await fetch((state.apiBase || "") + path, { method: opts.method || "GET", headers, body });
+  const ct = r.headers.get("content-type") || "";
+  const data = ct.includes("json") ? await r.json().catch(() => ({})) : await r.text();
   if (!r.ok) {
-    const e = new Error((data && data.error) || `请求失败 ${r.status}`);
-    e.status = r.status; e.data = data; throw e;
+    const e = new Error(data && data.error || `请求失败 ${r.status}`);
+    e.status = r.status;
+    e.data = data;
+    throw e;
   }
   return data;
 }
-
 async function api(path, opts = {}) {
-  if (state.mode === 'local') return localApi(path, opts);
+  if (state.mode === "local") return localApi(path, opts);
   try {
     return await remoteCall(path, opts);
   } catch (e) {
-    // 只有网络层失败才降级；4xx/5xx 属于业务错误，照常抛
     if (e.status) throw e;
-    state.mode = 'local';
-    try { toast('后端不可达，已切换到离线模式', 3000); } catch {}
+    state.mode = "local";
+    try {
+      toast("后端不可达，已切换到离线模式", 3e3);
+    } catch (e2) {
+    }
     return localApi(path, opts);
   }
 }
-
 async function detectMode() {
+  const host = location.hostname;
+  const isLoopback = host === "localhost" || host === "127.0.0.1" || host === "[::1]" || location.protocol === "file:";
+  if (!state.apiBase && !isLoopback) {
+    try {
+      const ac = new AbortController();
+      const t = setTimeout(() => ac.abort(), 1200);
+      const r = await fetch("/api/health", { signal: ac.signal, cache: "no-store" });
+      clearTimeout(t);
+      if (r.ok) {
+        const j = await r.json().catch(() => ({}));
+        state.mode = j.mode === "local" ? "local" : "remote";
+        return;
+      }
+    } catch (e) {
+    }
+    state.mode = "local";
+    return;
+  }
   try {
     const ac = new AbortController();
-    const t = setTimeout(() => ac.abort(), 3500);
-    const r = await fetch((state.apiBase || '') + '/api/health', { signal: ac.signal });
+    const t = setTimeout(() => ac.abort(), 2500);
+    const r = await fetch((state.apiBase || "") + "/api/health", { signal: ac.signal, cache: "no-store" });
     clearTimeout(t);
-    if (!r.ok) throw new Error('bad');
+    if (!r.ok) throw new Error("bad");
     const j = await r.json();
-    state.mode = j.mode === 'local' ? 'local' : 'remote';
-  } catch { state.mode = 'local'; }
+    state.mode = j.mode === "local" ? "local" : "remote";
+  } catch (e) {
+    state.mode = "local";
+  }
 }
-
-// ---------------- 入口 ----------------
 async function boot() {
   try {
-    $('#boot').textContent = '正在连接…';
-    await detectMode();
-    if (state.mode === 'local') {
-      $('#boot').hidden = true; $('#app').hidden = false;
+    $("#boot").textContent = "正在启动…";
+    await Promise.race([detectMode(), new Promise((r) => setTimeout(r, 3e3))]);
+    if (state.mode === "local") {
+      $("#boot").hidden = true;
+      $("#app").hidden = false;
       if (localIsLoggedIn()) {
         state.user = localUser();
         state.usage = null;
-        return go('record');
+        return go("record");
       }
       return renderLogin();
     }
     if (state.token) {
       try {
-        const p = await api('/api/user/profile');
-        state.user = p.user; state.usage = p.usage;
-        const s = await api('/api/user/settings');
-        state.settings = s.settings || {}; state.caps = s.caps;
+        const p = await api("/api/user/profile");
+        state.user = p.user;
+        state.usage = p.usage;
+        const s = await api("/api/user/settings");
+        state.settings = s.settings || {};
+        state.caps = s.caps;
       } catch (e) {
-        if (e.status === 401) { state.token = ''; localStorage.removeItem('lcs.token'); }
-        else if (e.status) throw e;
+        if (e.status === 401) {
+          state.token = "";
+          localStorage.removeItem("lcs.token");
+        } else if (e.status) throw e;
       }
     }
-    $('#boot').hidden = true; $('#app').hidden = false;
+    $("#boot").hidden = true;
+    $("#app").hidden = false;
     if (!state.user) return renderLogin();
-    go('record');
+    go("record");
   } catch (e) {
-    $('#boot').hidden = true; $('#app').hidden = false;
-    $('#view').innerHTML = `<div class="card"><div class="h2">启动失败</div><p class="muted">${esc(e.message)}</p></div>`;
+    $("#boot").hidden = true;
+    $("#app").hidden = false;
+    $("#view").innerHTML = `<div class="card"><div class="h2">启动失败</div><p class="muted">${esc(e.message)}</p>
+      <button class="btn sm" onclick="location.reload()" style="margin-top:10px">重新加载</button></div>`;
   }
 }
-if (typeof renderInlineShare === 'function' && /share=/.test(location.hash || '')) {
+if (typeof renderInlineShare === "function" && /share=/.test(location.hash || "")) {
   renderInlineShare();
 } else {
   boot();
 }
-
 function setNav(title, { back = false, tabs = true } = {}) {
-  $('#nav-title').textContent = title;
-  $('#btn-back').hidden = !back;
-  $('#tabbar').hidden = !tabs;
+  $("#nav-title").textContent = title;
+  $("#btn-back").hidden = !back;
+  $("#tabbar").hidden = !tabs;
 }
-
 function go(view, arg) {
   state.view = view;
-  if (['record', 'sessions', 'chat', 'settings'].includes(view)) state.tab = view;
-  $('#tabbar .tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
+  if (["record", "sessions", "chat", "settings"].includes(view)) state.tab = view;
+  $("#tabbar .tab").forEach((b) => b.classList.toggle("active", b.dataset.tab === state.tab));
   const render = {
-    login: renderLogin, record: renderRecord, sessions: renderSessions,
-    session: () => renderSession(arg), chat: renderChat, settings: renderSettings,
+    login: renderLogin,
+    record: renderRecord,
+    sessions: renderSessions,
+    session: () => renderSession(arg),
+    chat: renderChat,
+    settings: renderSettings
   }[view];
   if (!render) return;
-  const box = $('#view');
+  const box = $("#view");
   box.innerHTML = '<div class="empty">载入中…</div>';
   Promise.resolve(render(arg)).then((html) => {
-    box.innerHTML = html; box.classList.add('fade-in');
-    setTimeout(() => box.classList.remove('fade-in'), 200);
-    if (view === 'session' && detail) paintTranscript();
-    if (view === 'chat' && state.chat) paintChat(state.chat);
-  }).catch((e) => { box.innerHTML = `<div class="card"><div class="h2">出错了</div><p class="muted">${esc(e.message)}</p></div>`; });
+    box.innerHTML = html;
+    box.classList.add("fade-in");
+    setTimeout(() => box.classList.remove("fade-in"), 200);
+    if (view === "session" && detail) paintTranscript();
+    if (view === "chat" && state.chat) paintChat(state.chat);
+  }).catch((e) => {
+    box.innerHTML = `<div class="card"><div class="h2">出错了</div><p class="muted">${esc(e.message)}</p></div>`;
+  });
 }
-
-// ---------------- 账号页 ----------------
 function renderLogin() {
-  setNav('LecSync', { tabs: false, back: false });
-  $('#view').innerHTML = `
+  setNav("LecSync", { tabs: false, back: false });
+  $("#view").innerHTML = `
     <div class="card fade-in">
       <div class="h1">LecSync</div>
       <p class="muted" style="margin-top:-4px">录音 · 逐句转写 · 双语字幕 · AI 纪要，全部不限量。</p>
@@ -665,40 +799,46 @@ function renderLogin() {
       </form>
       <p class="tiny" style="margin-top:12px">数据存在服务端，换设备登录同一账号即可继续。</p>
     </div>`;
-  let mode = 'login';
-  $('#auth-form ~ *, .tabs button').forEach(() => {});
-  $('.tabs button').forEach((b) => b.addEventListener('click', () => {
+  let mode = "login";
+  $("#auth-form ~ *, .tabs button").forEach(() => {
+  });
+  $(".tabs button").forEach((b) => b.addEventListener("click", () => {
     mode = b.dataset.mode;
-    $('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
-    $('#f-name').hidden = mode !== 'register';
-    $('#auth-submit').textContent = mode === 'login' ? '登录' : '创建账号';
+    $(".tabs button").forEach((x) => x.classList.toggle("active", x === b));
+    $("#f-name").hidden = mode !== "register";
+    $("#auth-submit").textContent = mode === "login" ? "登录" : "创建账号";
   }));
-  $('#auth-form').addEventListener('submit', async (ev) => {
+  $("#auth-form").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const fd = new FormData(ev.target);
-    const payload = { email: fd.get('email'), password: fd.get('password') };
-    if (mode === 'register') payload.name = fd.get('name') || '';
-    const btn = $('#auth-submit'); btn.disabled = true; btn.textContent = '处理中…';
+    const payload = { email: fd.get("email"), password: fd.get("password") };
+    if (mode === "register") payload.name = fd.get("name") || "";
+    const btn = $("#auth-submit");
+    btn.disabled = true;
+    btn.textContent = "处理中…";
     try {
-      const r = await api(mode === 'login' ? '/api/auth/mobile' : '/api/auth/register', { method: 'POST', body: payload });
-      state.token = r.token; localStorage.setItem('lcs.token', r.token); state.user = r.user;
-      if (state.mode === 'remote') {
-        const s = await api('/api/user/settings'); state.settings = s.settings || {}; state.caps = s.caps;
+      const r = await api(mode === "login" ? "/api/auth/mobile" : "/api/auth/register", { method: "POST", body: payload });
+      state.token = r.token;
+      localStorage.setItem("lcs.token", r.token);
+      state.user = r.user;
+      if (state.mode === "remote") {
+        const s = await api("/api/user/settings");
+        state.settings = s.settings || {};
+        state.caps = s.caps;
       }
-      go('record');
+      go("record");
     } catch (e) {
-      toast(e.message); btn.disabled = false; btn.textContent = mode === 'login' ? '登录' : '创建账号';
+      toast(e.message);
+      btn.disabled = false;
+      btn.textContent = mode === "login" ? "登录" : "创建账号";
     }
   });
 }
-
-// ---------------- 录音页 ----------------
-let rec = null; // { recorder, stream, chunks, recognition, t0, segs, timer, sessionId, paused }
-
+var rec = null;
 function renderRecord() {
-  setNav('LecSync');
+  setNav("LecSync");
   const mediaOk = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
-  $('#view').innerHTML = `
+  $("#view").innerHTML = `
     <div class="card">
       <div class="row between">
         <div class="pill ok" id="cap-pill">Pro 全解锁 · 全部功能免费</div>
@@ -706,14 +846,14 @@ function renderRecord() {
       </div>
       <div class="rec-wrap">
         <div class="timer" id="rec-timer">00:00</div>
-        <button class="rec-btn" id="rec-btn" ${mediaOk ? '' : 'disabled'}>●</button>
-        <div class="wave" id="wave">${Array.from({ length: 28 }, () => '<i></i>').join('')}</div>
+        <button class="rec-btn" id="rec-btn" ${mediaOk ? "" : "disabled"}>●</button>
+        <div class="wave" id="wave">${Array.from({ length: 28 }, () => "<i></i>").join("")}</div>
         <div class="row" style="gap:8px">
           <button class="btn sm" id="btn-pause" hidden>暂停</button>
           <button class="btn sm" id="btn-mark" hidden>标记重点</button>
           <button class="btn sm" id="btn-upload">上传音频</button>
         </div>
-        <p class="tiny" id="rec-hint">${mediaOk ? (state.caps.asr ? '点圆形按钮开始录音，结束后自动服务端转写。' : '点圆形按钮开始录音，浏览器会实时出字幕；结束后可保存为记录。') : '当前浏览器不支持录音，请用上传音频或 Chrome / Safari。'}</p>
+        <p class="tiny" id="rec-hint">${mediaOk ? state.caps.asr ? "点圆形按钮开始录音，结束后自动服务端转写。" : "点圆形按钮开始录音，浏览器会实时出字幕；结束后可保存为记录。" : "当前浏览器不支持录音，请用上传音频或 Chrome / Safari。"}</p>
       </div>
       <div class="live" id="live" hidden></div>
     </div>
@@ -722,21 +862,20 @@ function renderRecord() {
       <div id="recent"><div class="empty">还没有记录</div></div>
     </div>
     <input type="file" id="file-audio" accept="audio/*,video/*" hidden />`;
-
-  $('#rec-btn').addEventListener('click', toggleRecording);
-  $('#btn-pause').addEventListener('click', togglePause);
-  $('#btn-upload').addEventListener('click', () => $('#file-audio').click());
-  $('#file-audio').addEventListener('change', onPickAudio);
-  $('#btn-mark').addEventListener('click', () => rec && rec.mark && rec.mark());
-  $('[data-nav]').forEach((b) => b.addEventListener('click', () => go(b.dataset.nav)));
+  $("#rec-btn").addEventListener("click", toggleRecording);
+  $("#btn-pause").addEventListener("click", togglePause);
+  $("#btn-upload").addEventListener("click", () => $("#file-audio").click());
+  $("#file-audio").addEventListener("change", onPickAudio);
+  $("#btn-mark").addEventListener("click", () => rec && rec.mark && rec.mark());
+  $("[data-nav]").forEach((b) => b.addEventListener("click", () => go(b.dataset.nav)));
   loadRecent();
 }
-
 async function loadRecent() {
   try {
-    const r = await api('/api/sessions?limit=5');
+    const r = await api("/api/sessions?limit=5");
     state.sessions = r.items;
-    const box = $('#recent'); if (!box) return;
+    const box = $("#recent");
+    if (!box) return;
     box.innerHTML = r.items.length ? r.items.map((s) => `
       <div class="list-item" data-open="${esc(s.id)}">
         <div style="min-width:0">
@@ -744,48 +883,49 @@ async function loadRecent() {
           <div class="tiny">${fmtDate(s.created_at)} · ${fmtTime(s.duration_ms)} · ${s.segment_count} 句</div>
         </div>
         <div class="tiny">›</div>
-      </div>`).join('') : '<div class="empty">还没有记录</div>';
-    $('[data-open]', box).forEach((el) => el.addEventListener('click', () => go('session', el.dataset.open)));
-  } catch {}
+      </div>`).join("") : '<div class="empty">还没有记录</div>';
+    $("[data-open]", box).forEach((el) => el.addEventListener("click", () => go("session", el.dataset.open)));
+  } catch (e) {
+  }
 }
-
 async function toggleRecording() {
   if (rec) return stopRecording();
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true }, video: false });
-    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-      : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
-    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : MediaRecorder.isTypeSupported("audio/mp4") ? "audio/mp4" : "";
+    const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : void 0);
     const chunks = [];
     recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
-    recorder.start(1000);
-
+    recorder.start(1e3);
     rec = { recorder, stream, chunks, t0: Date.now(), segs: [], marks: [], paused: false, timer: null, recognition: null, pending: [], flushing: false, transTimer: null };
-    $('#rec-btn').classList.add('recording'); $('#rec-btn').textContent = '■';
-    $('#btn-pause').hidden = false; $('#btn-mark').hidden = false;
-    $('#live').hidden = false; $('#live').innerHTML = '';
-    $('#rec-timer').textContent = '00:00';
+    $("#rec-btn").classList.add("recording");
+    $("#rec-btn").textContent = "■";
+    $("#btn-pause").hidden = false;
+    $("#btn-mark").hidden = false;
+    $("#live").hidden = false;
+    $("#live").innerHTML = "";
+    $("#rec-timer").textContent = "00:00";
     rec.timer = setInterval(() => {
-      $('#rec-timer').textContent = fmtTime(Date.now() - rec.t0);
-      const bars = $('#wave i');
-      bars.forEach((b) => (b.style.height = 6 + Math.random() * 26 + 'px'));
+      $("#rec-timer").textContent = fmtTime(Date.now() - rec.t0);
+      const bars = $("#wave i");
+      bars.forEach((b) => b.style.height = 6 + Math.random() * 26 + "px");
     }, 260);
     rec.transTimer = setInterval(flushTranslations, 2500);
-
     startSpeech();
-    toast('开始录音');
+    toast("开始录音");
   } catch (e) {
-    toast('无法录音：' + e.message);
+    toast("无法录音：" + e.message);
   }
 }
-
 function startSpeech() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) return;
   try {
     const r = new SR();
-    r.lang = state.settings.lang && state.settings.lang !== 'auto' ? state.settings.lang : 'zh-CN';
-    r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+    r.lang = state.settings.lang && state.settings.lang !== "auto" ? state.settings.lang : "zh-CN";
+    r.continuous = true;
+    r.interimResults = true;
+    r.maxAlternatives = 1;
     let base = 0;
     r.onresult = (ev) => {
       for (let i = ev.resultIndex; i < ev.results.length; i++) {
@@ -803,30 +943,40 @@ function startSpeech() {
         }
       }
     };
-    r.onerror = (e) => { console.warn('speech error', e.error); if (e.error === 'not-allowed') toast('实时识别被拒绝，可改用上传音频'); };
-    r.onend = () => { if (rec && !rec.paused) { try { r.start(); } catch {} } };
+    r.onerror = (e) => {
+      console.warn("speech error", e.error);
+      if (e.error === "not-allowed") toast("实时识别被拒绝，可改用上传音频");
+    };
+    r.onend = () => {
+      if (rec && !rec.paused) {
+        try {
+          r.start();
+        } catch (e) {
+        }
+      }
+    };
     r.start();
     rec.recognition = r;
-  } catch (e) { console.warn(e); }
+  } catch (e) {
+    console.warn(e);
+  }
 }
-
 function appendLive(text, ms, idx) {
-  const box = $('#live'); if (!box) return;
-  const div = document.createElement('div');
-  div.className = 'ln';
-  div.dataset.idx = idx ?? '';
+  const box = $("#live");
+  if (!box) return;
+  const div = document.createElement("div");
+  div.className = "ln";
+  div.dataset.idx = idx != null ? idx : "";
   div.innerHTML = `<span class="ts">${fmtTime(ms)}</span>${esc(text)}`;
-  box.appendChild(div); box.scrollTop = box.scrollHeight;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
 }
-
-// 实时同传：识别出整句后异步翻译，回填到对应行（原 App 的 Pro 功能，这里默认开）
 function queueTranslate(text, idx) {
   if (!rec) return;
   if (state.settings.bilingual === false) return;
   if (!text || text.length < 2) return;
   rec.pending.push({ text, idx });
 }
-
 async function flushTranslations() {
   if (!rec || !rec.pending.length) return;
   if (!rec.flushing) {
@@ -834,99 +984,128 @@ async function flushTranslations() {
     const batch = rec.pending.splice(0, 3);
     for (const item of batch) {
       try {
-        const r = await api('/api/translate', { method: 'POST', body: { text: item.text, target: state.settings.target_lang || 'en' } });
+        const r = await api("/api/translate", { method: "POST", body: { text: item.text, target: state.settings.target_lang || "en" } });
         const row = $(`#live .ln[data-idx="${item.idx}"]`);
         if (row && r.text) {
-          let tr = row.querySelector('.tr');
-          if (!tr) { tr = document.createElement('div'); tr.className = 'tr'; tr.style.cssText = 'color:var(--fg2);font-size:13px;margin-top:2px'; row.appendChild(tr); }
+          let tr = row.querySelector(".tr");
+          if (!tr) {
+            tr = document.createElement("div");
+            tr.className = "tr";
+            tr.style.cssText = "color:var(--fg2);font-size:13px;margin-top:2px";
+            row.appendChild(tr);
+          }
           tr.textContent = r.text;
         }
         if (rec) rec.segs[item.idx] && (rec.segs[item.idx].translation = r.text);
-      } catch { /* 翻译失败不影响录音 */ }
+      } catch (e) {
+      }
     }
     rec.flushing = false;
   }
 }
 function showInterim(text) {
-  const box = $('#live'); if (!box) return;
-  let el = box.querySelector('.interim');
-  if (!el) { el = document.createElement('div'); el.className = 'ln interim'; el.style.opacity = '.55'; box.appendChild(el); }
-  el.textContent = text; box.scrollTop = box.scrollHeight;
+  const box = $("#live");
+  if (!box) return;
+  let el = box.querySelector(".interim");
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "ln interim";
+    el.style.opacity = ".55";
+    box.appendChild(el);
+  }
+  el.textContent = text;
+  box.scrollTop = box.scrollHeight;
 }
-
 function togglePause() {
   if (!rec) return;
   if (!rec.paused) {
-    rec.recorder.pause(); rec.paused = true; $('#btn-pause').textContent = '继续';
-    try { rec.recognition && rec.recognition.stop(); } catch {}
+    rec.recorder.pause();
+    rec.paused = true;
+    $("#btn-pause").textContent = "继续";
+    try {
+      rec.recognition && rec.recognition.stop();
+    } catch (e) {
+    }
   } else {
-    rec.recorder.resume(); rec.paused = false; $('#btn-pause').textContent = '暂停';
+    rec.recorder.resume();
+    rec.paused = false;
+    $("#btn-pause").textContent = "暂停";
     startSpeech();
   }
 }
-
 async function stopRecording() {
-  const r = rec; rec = null;
+  const r = rec;
+  rec = null;
   clearInterval(r.timer);
   clearInterval(r.transTimer);
-  try { r.recognition && r.recognition.stop(); } catch {}
-  r.stream.getTracks().forEach((t) => t.stop());
-  $('#rec-btn').classList.remove('recording'); $('#rec-btn').textContent = '●';
-  $('#btn-pause').hidden = true; $('#btn-mark').hidden = true;
-  const duration = Date.now() - r.t0;
-  await new Promise((res) => { r.recorder.onstop = res; r.recorder.stop(); });
-  const blob = new Blob(r.chunks, { type: r.recorder.mimeType || 'audio/webm' });
-  const title = '录音 ' + new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-  toast('正在保存…', 1200);
   try {
-    if (state.mode === 'remote' && state.caps.asr && blob.size > 2000) {
-      const fd = new FormData();
-      fd.append('file', blob, 'rec-' + Date.now() + (blob.type.includes('mp4') ? '.m4a' : '.webm'));
-      fd.append('title', title);
-      fd.append('duration_ms', String(duration));
-      fd.append('lang', state.settings.lang || 'auto');
-      const out = await api('/api/transcription/upload', { method: 'POST', body: fd });
-      const s = out.session;
-      if (!out.asr.ok && r.segs.length) {
-        // 服务端转写失败时补写浏览器实时结果
-        await api('/api/transcription/segments', { method: 'POST', body: { sessionId: s.id, segments: r.segs } }).catch(() => {});
-      }
-      toast(out.asr.ok ? '已转写并保存' : '已保存（' + (out.asr.reason || '转写未完成') + '）');
-      return go('session', s.id);
-    }
-    const s = await api('/api/sessions', { method: 'POST', body: { title, duration_ms: duration, lang: state.settings.lang || 'auto' } });
-    if (r.segs.length) {
-      await api('/api/transcription/segments', { method: 'POST', body: { sessionId: s.id, segments: r.segs } });
-    } else {
-      toast('没有识别到文字：可上传音频到服务端转写，或手动编辑');
-    }
-    go('session', s.id);
+    r.recognition && r.recognition.stop();
   } catch (e) {
-    toast('保存失败：' + e.message);
+  }
+  r.stream.getTracks().forEach((t) => t.stop());
+  $("#rec-btn").classList.remove("recording");
+  $("#rec-btn").textContent = "●";
+  $("#btn-pause").hidden = true;
+  $("#btn-mark").hidden = true;
+  const duration = Date.now() - r.t0;
+  await new Promise((res) => {
+    r.recorder.onstop = res;
+    r.recorder.stop();
+  });
+  const blob = new Blob(r.chunks, { type: r.recorder.mimeType || "audio/webm" });
+  const title = "录音 " + (/* @__PURE__ */ new Date()).toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  toast("正在保存…", 1200);
+  try {
+    if (state.mode === "remote" && state.caps.asr && blob.size > 2e3) {
+      const fd = new FormData();
+      fd.append("file", blob, "rec-" + Date.now() + (blob.type.includes("mp4") ? ".m4a" : ".webm"));
+      fd.append("title", title);
+      fd.append("duration_ms", String(duration));
+      fd.append("lang", state.settings.lang || "auto");
+      const out = await api("/api/transcription/upload", { method: "POST", body: fd });
+      const s2 = out.session;
+      if (!out.asr.ok && r.segs.length) {
+        await api("/api/transcription/segments", { method: "POST", body: { sessionId: s2.id, segments: r.segs } }).catch(() => {
+        });
+      }
+      toast(out.asr.ok ? "已转写并保存" : "已保存（" + (out.asr.reason || "转写未完成") + "）");
+      return go("session", s2.id);
+    }
+    const s = await api("/api/sessions", { method: "POST", body: { title, duration_ms: duration, lang: state.settings.lang || "auto" } });
+    if (r.segs.length) {
+      await api("/api/transcription/segments", { method: "POST", body: { sessionId: s.id, segments: r.segs } });
+    } else {
+      toast("没有识别到文字：可上传音频到服务端转写，或手动编辑");
+    }
+    go("session", s.id);
+  } catch (e) {
+    toast("保存失败：" + e.message);
   }
 }
-
 async function onPickAudio(ev) {
   const f = ev.target.files && ev.target.files[0];
-  ev.target.value = '';
+  ev.target.value = "";
   if (!f) return;
-  if (state.mode === 'local') { toast('离线模式不支持音频转写：请用麦克风实时识别，或配置后端地址', 3600); return; }
+  if (state.mode === "local") {
+    toast("离线模式不支持音频转写：请用麦克风实时识别，或配置后端地址", 3600);
+    return;
+  }
   const fd = new FormData();
-  fd.append('file', f, f.name);
-  fd.append('title', f.name.replace(/\.[^.]+$/, ''));
-  fd.append('lang', state.settings.lang || 'auto');
-  toast('上传中…', 3000);
+  fd.append("file", f, f.name);
+  fd.append("title", f.name.replace(/\.[^.]+$/, ""));
+  fd.append("lang", state.settings.lang || "auto");
+  toast("上传中…", 3e3);
   try {
-    const out = await api('/api/transcription/upload', { method: 'POST', body: fd });
-    toast(out.asr.ok ? '已转写' : '已保存（' + (out.asr.reason || '未配置服务端转写') + '）', 3200);
-    go('session', out.session.id);
-  } catch (e) { toast('上传失败：' + e.message); }
+    const out = await api("/api/transcription/upload", { method: "POST", body: fd });
+    toast(out.asr.ok ? "已转写" : "已保存（" + (out.asr.reason || "未配置服务端转写") + "）", 3200);
+    go("session", out.session.id);
+  } catch (e) {
+    toast("上传失败：" + e.message);
+  }
 }
-
-// ---------------- 记录列表 ----------------
 async function renderSessions() {
-  setNav('记录');
-  const r = await api('/api/sessions?limit=200');
+  setNav("记录");
+  const r = await api("/api/sessions?limit=200");
   state.sessions = r.items;
   if (!r.items.length) return `<div class="empty">还没有记录<br /><br /><button class="btn" data-nav="record">去录音</button></div>`;
   return `
@@ -934,59 +1113,60 @@ async function renderSessions() {
       <input class="input" id="q" placeholder="搜索标题或内容…" style="flex:1" />
       <button class="btn sm" id="btn-trash">回收站</button>
     </div>
-    <div id="list">${r.items.map(sessionCard).join('')}</div>`;
+    <div id="list">${r.items.map(sessionCard).join("")}</div>`;
 }
 function sessionCard(s) {
   return `<div class="session" data-open="${esc(s.id)}">
     <div class="meta">
       <div class="t">${esc(s.title)}</div>
-      <div class="p">${esc(s.preview || '（空转录）')}</div>
-      <div class="tiny" style="margin-top:5px">${fmtDate(s.created_at)} · ${fmtTime(s.duration_ms)} · ${s.segment_count} 句 ${s.has_digest ? '· 有纪要' : ''}</div>
+      <div class="p">${esc(s.preview || "（空转录）")}</div>
+      <div class="tiny" style="margin-top:5px">${fmtDate(s.created_at)} · ${fmtTime(s.duration_ms)} · ${s.segment_count} 句 ${s.has_digest ? "· 有纪要" : ""}</div>
     </div>
   </div>`;
 }
-document.addEventListener('click', (e) => {
-  const open = e.target.closest('[data-open]');
-  if (open) return go('session', open.dataset.open);
-  const nav = e.target.closest('[data-nav]');
+document.addEventListener("click", (e) => {
+  const open = e.target.closest("[data-open]");
+  if (open) return go("session", open.dataset.open);
+  const nav = e.target.closest("[data-nav]");
   if (nav) return go(nav.dataset.nav);
 });
-document.addEventListener('input', async (e) => {
-  if (e.target.id === 'q' && state.view === 'sessions') {
+document.addEventListener("input", async (e) => {
+  if (e.target.id === "q" && state.view === "sessions") {
     const q = e.target.value.trim();
-    const r = await api('/api/sessions?limit=200&q=' + encodeURIComponent(q));
-    $('#list').innerHTML = r.items.length ? r.items.map(sessionCard).join('') : '<div class="empty">没有匹配的记录</div>';
+    const r = await api("/api/sessions?limit=200&q=" + encodeURIComponent(q));
+    $("#list").innerHTML = r.items.length ? r.items.map(sessionCard).join("") : '<div class="empty">没有匹配的记录</div>';
   }
 });
-document.addEventListener('click', async (e) => {
-  if (e.target.id === 'btn-trash') {
-    const items = await api('/api/trash');
-    sheet(`<div class="h2">回收站</div>${items.length ? items.map((s) => `<div class="list-item"><div>${esc(s.title)}<div class="tiny">${fmtDate(s.deleted_at)}</div></div><button class="btn sm" data-restore="${esc(s.id)}">恢复</button></div>`).join('') : '<div class="empty">空</div>'}<div style="margin-top:14px"><button class="btn" data-close>关闭</button></div>`);
-    $('[data-restore]').forEach((b) => b.addEventListener('click', async () => {
-      await api('/api/trash/restore', { method: 'POST', body: { id: b.dataset.restore } });
-      closeSheet(); toast('已恢复'); go('sessions');
+document.addEventListener("click", async (e) => {
+  if (e.target.id === "btn-trash") {
+    const items = await api("/api/trash");
+    sheet(`<div class="h2">回收站</div>${items.length ? items.map((s) => `<div class="list-item"><div>${esc(s.title)}<div class="tiny">${fmtDate(s.deleted_at)}</div></div><button class="btn sm" data-restore="${esc(s.id)}">恢复</button></div>`).join("") : '<div class="empty">空</div>'}<div style="margin-top:14px"><button class="btn" data-close>关闭</button></div>`);
+    $("[data-restore]").forEach((b) => b.addEventListener("click", async () => {
+      await api("/api/trash/restore", { method: "POST", body: { id: b.dataset.restore } });
+      closeSheet();
+      toast("已恢复");
+      go("sessions");
     }));
   }
 });
-document.addEventListener('click', (e) => { if (e.target.closest('[data-close]') || e.target.id === 'sheet') closeSheet(); });
-$('#btn-back').addEventListener('click', () => go(state.tab || 'record'));
-$('#btn-account').addEventListener('click', () => go('settings'));
-
-// ---------------- 会话详情 ----------------
-let detail = null;
-
+document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-close]") || e.target.id === "sheet") closeSheet();
+});
+$("#btn-back").addEventListener("click", () => go(state.tab || "record"));
+$("#btn-account").addEventListener("click", () => go("settings"));
+var detail = null;
 async function renderSession(id) {
-  setNav('记录详情', { back: true });
-  const s = await api('/api/sessions/' + id);
+  setNav("记录详情", { back: true });
+  const s = await api("/api/sessions/" + id);
   detail = s;
   const d = s.digest;
   return `
     <div class="card">
       <input class="input" id="s-title" value="${esc(s.title)}" style="font-weight:650;font-size:17px;background:transparent;border-color:transparent;padding-left:0" />
       <div class="row between" style="margin-top:6px">
-        <div class="tiny">${new Date(s.created_at).toLocaleString('zh-CN')} · ${fmtTime(s.duration_ms)} · ${s.segments.length} 句</div>
+        <div class="tiny">${new Date(s.created_at).toLocaleString("zh-CN")} · ${fmtTime(s.duration_ms)} · ${s.segments.length} 句</div>
         <div class="row" style="gap:6px">
-          <button class="btn sm" id="btn-digest">${d ? '重新生成纪要' : '生成纪要'}</button>
+          <button class="btn sm" id="btn-digest">${d ? "重新生成纪要" : "生成纪要"}</button>
           <button class="btn sm" id="btn-more">更多</button>
         </div>
       </div>
@@ -998,124 +1178,145 @@ async function renderSession(id) {
     </div>
     <div id="d-body"></div>`;
 }
-
 function paintTranscript() {
   const s = detail;
-  $('#d-body').innerHTML = s.segments.length ? `
+  $("#d-body").innerHTML = s.segments.length ? `
     <div class="row between" style="margin-bottom:8px">
       <input class="input" id="seg-q" placeholder="在转录里搜索…" style="flex:1" />
-      <button class="btn sm" id="btn-translate">${s.segments.some((x) => x.translation) ? '重新翻译' : '整篇翻译'}</button>
+      <button class="btn sm" id="btn-translate">${s.segments.some((x) => x.translation) ? "重新翻译" : "整篇翻译"}</button>
     </div>
-    <div id="segs">${s.segments.map((g) => segHTML(g)).join('')}</div>`
-    : `<div class="empty">没有转录内容<br /><br /><button class="btn" id="btn-add-seg">手动添加一句</button></div>`;
+    <div id="segs">${s.segments.map((g) => segHTML(g)).join("")}</div>` : `<div class="empty">没有转录内容<br /><br /><button class="btn" id="btn-add-seg">手动添加一句</button></div>`;
   bindSegActions();
 }
-
 function segHTML(g) {
   return `<div class="seg" data-seg="${esc(g.id)}">
-    <div class="ts" data-jump="${g.t0 || 0}">${g.t0 != null ? fmtTime(g.t0) : '--:--'}</div>
+    <div class="ts" data-jump="${g.t0 || 0}">${g.t0 != null ? fmtTime(g.t0) : "--:--"}</div>
     <div class="body">
       <div class="tx" contenteditable="true" data-edit="${esc(g.id)}">${esc(g.text)}</div>
-      ${g.translation ? `<div class="tr">${esc(g.translation)}</div>` : ''}
+      ${g.translation ? `<div class="tr">${esc(g.translation)}</div>` : ""}
     </div>
   </div>`;
 }
-
 function bindSegActions() {
-  $('[data-edit]').forEach((el) => el.addEventListener('blur', async () => {
+  $("[data-edit]").forEach((el) => el.addEventListener("blur", async () => {
     const text = el.textContent.trim();
-    await api('/api/transcription/segments/' + el.dataset.edit, { method: 'PATCH', body: { text } }).catch(() => {});
+    await api("/api/transcription/segments/" + el.dataset.edit, { method: "PATCH", body: { text } }).catch(() => {
+    });
   }));
-  $('[data-jump]').forEach((el) => el.addEventListener('click', () => {
+  $("[data-jump]").forEach((el) => el.addEventListener("click", () => {
     if (!detail.audio) return;
-    const a = new Audio(detail.audio); a.currentTime = (Number(el.dataset.jump) || 0) / 1000; a.play();
+    const a = new Audio(detail.audio);
+    a.currentTime = (Number(el.dataset.jump) || 0) / 1e3;
+    a.play();
   }));
-  const q = $('#seg-q');
-  if (q) q.addEventListener('input', () => {
+  const q = $("#seg-q");
+  if (q) q.addEventListener("input", () => {
     const v = q.value.trim().toLowerCase();
-    $('#segs .seg').forEach((row) => {
+    $("#segs .seg").forEach((row) => {
       const hit = !v || row.textContent.toLowerCase().includes(v);
-      row.style.display = hit ? '' : 'none';
-      row.classList.toggle('hi', Boolean(v) && hit && row.textContent.toLowerCase().includes(v));
+      row.style.display = hit ? "" : "none";
+      row.classList.toggle("hi", Boolean(v) && hit && row.textContent.toLowerCase().includes(v));
     });
   });
-  const b = $('#btn-translate');
-  if (b) b.addEventListener('click', async () => {
-    b.disabled = true; b.innerHTML = '<span class="spin"></span> 翻译中';
+  const b = $("#btn-translate");
+  if (b) b.addEventListener("click", async () => {
+    b.disabled = true;
+    b.innerHTML = '<span class="spin"></span> 翻译中';
     try {
-      const r = await api(`/api/sessions/${detail.id}/translate`, { method: 'POST', body: { target: state.settings.target_lang || 'zh-CN' } });
-      detail.segments = r.segments; paintTranscript(); toast(`已翻译 ${r.translated} 句`);
-    } catch (e) { toast('翻译失败：' + e.message); b.disabled = false; b.textContent = '整篇翻译'; }
+      const r = await api(`/api/sessions/${detail.id}/translate`, { method: "POST", body: { target: state.settings.target_lang || "zh-CN" } });
+      detail.segments = r.segments;
+      paintTranscript();
+      toast(`已翻译 ${r.translated} 句`);
+    } catch (e) {
+      toast("翻译失败：" + e.message);
+      b.disabled = false;
+      b.textContent = "整篇翻译";
+    }
   });
-  const add = $('#btn-add-seg');
-  if (add) add.addEventListener('click', async () => {
-    await api('/api/transcription/segments', { method: 'POST', body: { sessionId: detail.id, segments: [{ t0: 0, t1: 0, text: '（新的一句）' }] } });
-    go('session', detail.id);
+  const add = $("#btn-add-seg");
+  if (add) add.addEventListener("click", async () => {
+    await api("/api/transcription/segments", { method: "POST", body: { sessionId: detail.id, segments: [{ t0: 0, t1: 0, text: "（新的一句）" }] } });
+    go("session", detail.id);
   });
 }
-
 function paintDigest() {
+  var _a, _b, _c, _d;
   const d = detail.digest;
-  if (!d) { $('#d-body').innerHTML = '<div class="empty">还没有纪要，点上方「生成纪要」</div>'; return; }
-  $('#d-body').innerHTML = `
-    <div class="card"><div class="h2">摘要</div><p class="muted" style="margin:0">${esc(d.summary || '—')}</p>
-      <div class="tiny" style="margin-top:8px">生成方式：${esc(d.generated_by || '本地算法')}</div></div>
-    ${d.points?.length ? `<div class="card"><div class="h2">要点</div>${d.points.map((p) => `<div class="list-item"><div>${esc(p)}</div></div>`).join('')}</div>` : ''}
-    ${d.outline?.length ? `<div class="card"><div class="h2">大纲</div>${d.outline.map((p) => `<div class="list-item"><div>${esc(p)}</div></div>`).join('')}</div>` : ''}
-    ${d.todos?.length ? `<div class="card"><div class="h2">待办</div>${d.todos.map((t, i) => `<div class="list-item"><label class="row" style="gap:8px"><input type="checkbox" data-todo="${i}" ${t.done ? 'checked' : ''}/> ${esc(t.text)}</label></div>`).join('')}</div>` : ''}
-    ${d.keywords?.length ? `<div class="card"><div class="h2">关键词</div><div class="row" style="flex-wrap:wrap;gap:6px">${d.keywords.map((k) => `<span class="pill">${esc(k)}</span>`).join('')}</div></div>` : ''}`;
-  $('[data-todo]').forEach((cb) => cb.addEventListener('change', async () => {
+  if (!d) {
+    $("#d-body").innerHTML = '<div class="empty">还没有纪要，点上方「生成纪要」</div>';
+    return;
+  }
+  $("#d-body").innerHTML = `
+    <div class="card"><div class="h2">摘要</div><p class="muted" style="margin:0">${esc(d.summary || "—")}</p>
+      <div class="tiny" style="margin-top:8px">生成方式：${esc(d.generated_by || "本地算法")}</div></div>
+    ${((_a = d.points) == null ? void 0 : _a.length) ? `<div class="card"><div class="h2">要点</div>${d.points.map((p) => `<div class="list-item"><div>${esc(p)}</div></div>`).join("")}</div>` : ""}
+    ${((_b = d.outline) == null ? void 0 : _b.length) ? `<div class="card"><div class="h2">大纲</div>${d.outline.map((p) => `<div class="list-item"><div>${esc(p)}</div></div>`).join("")}</div>` : ""}
+    ${((_c = d.todos) == null ? void 0 : _c.length) ? `<div class="card"><div class="h2">待办</div>${d.todos.map((t, i) => `<div class="list-item"><label class="row" style="gap:8px"><input type="checkbox" data-todo="${i}" ${t.done ? "checked" : ""}/> ${esc(t.text)}</label></div>`).join("")}</div>` : ""}
+    ${((_d = d.keywords) == null ? void 0 : _d.length) ? `<div class="card"><div class="h2">关键词</div><div class="row" style="flex-wrap:wrap;gap:6px">${d.keywords.map((k) => `<span class="pill">${esc(k)}</span>`).join("")}</div></div>` : ""}`;
+  $("[data-todo]").forEach((cb) => cb.addEventListener("change", async () => {
     d.todos[Number(cb.dataset.todo)].done = cb.checked;
-    await api('/api/sessions/' + detail.id, { method: 'PATCH', body: { digest: d } });
+    await api("/api/sessions/" + detail.id, { method: "PATCH", body: { digest: d } });
   }));
 }
-
 function paintAsk() {
-  $('#d-body').innerHTML = `
-    <div class="card"><div class="chatbox" id="askbox"><div class="msg bot">问任何关于这段录音的问题，例如「结论是什么」「谁负责什么」。${state.caps.llm ? '' : '（当前未接大模型，会用原文检索回答）'}</div></div></div>
+  $("#d-body").innerHTML = `
+    <div class="card"><div class="chatbox" id="askbox"><div class="msg bot">问任何关于这段录音的问题，例如「结论是什么」「谁负责什么」。${state.caps.llm ? "" : "（当前未接大模型，会用原文检索回答）"}</div></div></div>
     <div class="composer"><input class="input" id="ask-input" placeholder="输入问题…" style="flex:1" /><button class="btn primary" id="ask-send">发送</button></div>`;
   const send = async () => {
-    const v = $('#ask-input').value.trim(); if (!v) return;
-    const box = $('#askbox');
-    box.insertAdjacentHTML('beforeend', `<div class="msg user">${esc(v)}</div>`);
-    $('#ask-input').value = '';
-    const load = document.createElement('div'); load.className = 'msg bot'; load.innerHTML = '<span class="spin"></span>'; box.appendChild(load);
+    const v = $("#ask-input").value.trim();
+    if (!v) return;
+    const box = $("#askbox");
+    box.insertAdjacentHTML("beforeend", `<div class="msg user">${esc(v)}</div>`);
+    $("#ask-input").value = "";
+    const load = document.createElement("div");
+    load.className = "msg bot";
+    load.innerHTML = '<span class="spin"></span>';
+    box.appendChild(load);
     try {
-      const r = await api('/api/chat', { method: 'POST', body: { message: v, sessionId: detail.id, chatId: state.askChatId } });
-      state.askChatId = r.chat_id; load.textContent = r.message.content;
-    } catch (e) { load.textContent = '失败：' + e.message; }
-    box.scrollIntoView({ block: 'end' });
+      const r = await api("/api/chat", { method: "POST", body: { message: v, sessionId: detail.id, chatId: state.askChatId } });
+      state.askChatId = r.chat_id;
+      load.textContent = r.message.content;
+    } catch (e) {
+      load.textContent = "失败：" + e.message;
+    }
+    box.scrollIntoView({ block: "end" });
   };
-  $('#ask-send').addEventListener('click', send);
-  $('#ask-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+  $("#ask-send").addEventListener("click", send);
+  $("#ask-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") send();
+  });
 }
-
-// 详情页事件
-document.addEventListener('click', async (e) => {
-  if (state.view !== 'session' || !detail) return;
-  const t = e.target.closest('#d-tabs button');
+document.addEventListener("click", async (e) => {
+  if (state.view !== "session" || !detail) return;
+  const t = e.target.closest("#d-tabs button");
   if (t) {
-    $('#d-tabs button').forEach((b) => b.classList.toggle('active', b === t));
-    if (t.dataset.tab === 'transcript') paintTranscript();
-    if (t.dataset.tab === 'digest') paintDigest();
-    if (t.dataset.tab === 'ask') paintAsk();
+    $("#d-tabs button").forEach((b) => b.classList.toggle("active", b === t));
+    if (t.dataset.tab === "transcript") paintTranscript();
+    if (t.dataset.tab === "digest") paintDigest();
+    if (t.dataset.tab === "ask") paintAsk();
     return;
   }
-  if (e.target.id === 'btn-digest') {
-    const b = e.target; b.disabled = true; b.innerHTML = '<span class="spin"></span> 生成中';
+  if (e.target.id === "btn-digest") {
+    const b = e.target;
+    b.disabled = true;
+    b.innerHTML = '<span class="spin"></span> 生成中';
     try {
-      const d = await api(`/api/sessions/${detail.id}/digest`, { method: 'POST' });
+      const d = await api(`/api/sessions/${detail.id}/digest`, { method: "POST" });
       detail.digest = d;
-      $('#d-tabs button').forEach((x) => x.classList.toggle('active', x.dataset.tab === 'digest'));
-      paintDigest(); toast('纪要已生成');
-    } catch (err) { toast('生成失败：' + err.message); }
-    b.disabled = false; b.textContent = '重新生成纪要';
+      $("#d-tabs button").forEach((x) => x.classList.toggle("active", x.dataset.tab === "digest"));
+      paintDigest();
+      toast("纪要已生成");
+    } catch (err) {
+      toast("生成失败：" + err.message);
+    }
+    b.disabled = false;
+    b.textContent = "重新生成纪要";
     return;
   }
-  if (e.target.id === 'btn-more') return openMore();
+  if (e.target.id === "btn-more") return openMore();
 });
-
 function openMore() {
+  var _a;
   const s = detail;
   sheet(`
     <div class="h2">${esc(s.title)}</div>
@@ -1128,117 +1329,137 @@ function openMore() {
     <div class="list-item"><div>创建公开分享链接</div><button class="btn sm" data-share="1">生成</button></div>
     <div class="list-item"><div style="color:var(--bad)">删除到回收站</div><button class="btn sm danger" data-del="1">删除</button></div>
     <div style="margin-top:14px"><button class="btn" data-close>关闭</button></div>`);
-  $('[data-exp]').forEach((b) => b.addEventListener('click', () => download(detail, b.dataset.exp)));
-  $('[data-tts]')?.addEventListener('click', () => speakSession(detail));
-  $('[data-share]').addEventListener('click', async () => {
-    const r = await api('/api/share/link', { method: 'POST', body: { sessionId: detail.id } });
-    const url = r.url && String(r.url).startsWith('http') ? r.url : location.origin + '/s/' + r.token;
-    await navigator.clipboard?.writeText(url).catch(() => {});
+  $("[data-exp]").forEach((b) => b.addEventListener("click", () => download(detail, b.dataset.exp)));
+  (_a = $("[data-tts]")) == null ? void 0 : _a.addEventListener("click", () => speakSession(detail));
+  $("[data-share]").addEventListener("click", async () => {
+    var _a2;
+    const r = await api("/api/share/link", { method: "POST", body: { sessionId: detail.id } });
+    const url = r.url && String(r.url).startsWith("http") ? r.url : location.origin + "/s/" + r.token;
+    await ((_a2 = navigator.clipboard) == null ? void 0 : _a2.writeText(url).catch(() => {
+    }));
     sheet(`<div class="h2">分享链接</div><p class="muted">已复制到剪贴板，任何人打开可只读查看转录与纪要。</p>
       <div class="card" style="word-break:break-all">${esc(url)}</div>
       <div class="row" style="margin-top:12px;gap:8px"><a class="btn primary" href="${esc(url)}" target="_blank">打开</a><button class="btn" data-close>关闭</button></div>`);
   });
-  $('[data-del]').addEventListener('click', async () => {
-    await api('/api/sessions/' + detail.id, { method: 'DELETE' });
-    closeSheet(); toast('已移入回收站'); go('sessions');
+  $("[data-del]").addEventListener("click", async () => {
+    await api("/api/sessions/" + detail.id, { method: "DELETE" });
+    closeSheet();
+    toast("已移入回收站");
+    go("sessions");
   });
 }
-
 async function download(s, format) {
   try {
     let blob;
-    if (state.mode === 'local') {
-      blob = new Blob([localExport(s, format)], { type: 'text/plain;charset=utf-8' });
+    if (state.mode === "local") {
+      blob = new Blob([localExport(s, format)], { type: "text/plain;charset=utf-8" });
     } else {
-      const r = await fetch(`/api/export/${s.id}?format=${format}`, { headers: { authorization: 'Bearer ' + state.token } });
-      if (!r.ok) throw new Error('导出失败 ' + r.status);
+      const r = await fetch(`/api/export/${s.id}?format=${format}`, { headers: { authorization: "Bearer " + state.token } });
+      if (!r.ok) throw new Error("导出失败 " + r.status);
       blob = await r.blob();
     }
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = (s.title || 'transcript') + '.' + format;
+    a.download = (s.title || "transcript") + "." + format;
     a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 3000);
+    setTimeout(() => URL.revokeObjectURL(a.href), 3e3);
     closeSheet();
-  } catch (e) { toast(e.message); }
+  } catch (e) {
+    toast(e.message);
+  }
 }
-
-// 朗读（原 App 的 Pro 功能 TTS，这里用浏览器语音合成，免费无限）
 function speakSession(s) {
-  if (!('speechSynthesis' in window)) { toast('当前浏览器不支持朗读'); return; }
-  const text = (s.segments || []).map((x) => x.text).join('。');
-  if (!text) { toast('没有可朗读的内容'); return; }
+  if (!("speechSynthesis" in window)) {
+    toast("当前浏览器不支持朗读");
+    return;
+  }
+  const text = (s.segments || []).map((x) => x.text).join("。");
+  if (!text) {
+    toast("没有可朗读的内容");
+    return;
+  }
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
-  u.lang = (state.settings.lang && state.settings.lang !== 'auto') ? state.settings.lang : 'zh-CN';
-  u.rate = 1.0;
+  u.lang = state.settings.lang && state.settings.lang !== "auto" ? state.settings.lang : "zh-CN";
+  u.rate = 1;
   speechSynthesis.speak(u);
-  toast('开始朗读，再点一次可停止', 2400);
-  const once = () => { speechSynthesis.cancel(); };
+  toast("开始朗读，再点一次可停止", 2400);
+  const once = () => {
+    speechSynthesis.cancel();
+  };
   setTimeout(() => {
-    const btn = $('[data-tts]');
+    const btn = $("[data-tts]");
     if (btn) btn.onclick = once;
   }, 50);
 }
-
-// ---------------- AI 对话页 ----------------
 async function renderChat() {
-  setNav('AI 对话');
-  const list = await api('/api/chat/sessions');
+  setNav("AI 对话");
+  const list = await api("/api/chat/sessions");
   const last = list[0];
   state.chat = last || null;
   return `
     <div class="row" style="margin-bottom:10px;gap:8px">
       <select class="input" id="chat-pick" style="flex:1">
-        ${list.map((c) => `<option value="${esc(c.id)}" ${last && c.id === last.id ? 'selected' : ''}>${esc(c.title)}</option>`).join('')}
+        ${list.map((c) => `<option value="${esc(c.id)}" ${last && c.id === last.id ? "selected" : ""}>${esc(c.title)}</option>`).join("")}
         <option value="">＋ 新对话</option>
       </select>
       <button class="btn sm" id="chat-del">删除</button>
     </div>
     <div class="card"><div class="chatbox" id="chatbox"></div></div>
-    <div class="composer"><input class="input" id="chat-input" placeholder="${state.caps.llm ? '问点什么…' : '未接大模型：会按关键词在你的记录里检索'}" style="flex:1" /><button class="btn primary" id="chat-send">发送</button></div>`;
+    <div class="composer"><input class="input" id="chat-input" placeholder="${state.caps.llm ? "问点什么…" : "未接大模型：会按关键词在你的记录里检索"}" style="flex:1" /><button class="btn primary" id="chat-send">发送</button></div>`;
 }
-
-document.addEventListener('click', async (e) => {
-  if (e.target.id === 'chat-send') {
-    const v = $('#chat-input').value.trim(); if (!v) return;
-    const box = $('#chatbox');
-    box.insertAdjacentHTML('beforeend', `<div class="msg user">${esc(v)}</div>`);
-    $('#chat-input').value = '';
-    const load = document.createElement('div'); load.className = 'msg bot'; load.innerHTML = '<span class="spin"></span>'; box.appendChild(load);
+document.addEventListener("click", async (e) => {
+  var _a;
+  if (e.target.id === "chat-send") {
+    const v = $("#chat-input").value.trim();
+    if (!v) return;
+    const box = $("#chatbox");
+    box.insertAdjacentHTML("beforeend", `<div class="msg user">${esc(v)}</div>`);
+    $("#chat-input").value = "";
+    const load = document.createElement("div");
+    load.className = "msg bot";
+    load.innerHTML = '<span class="spin"></span>';
+    box.appendChild(load);
     try {
-      const r = await api('/api/chat', { method: 'POST', body: { message: v, chatId: state.chat?.id } });
+      const r = await api("/api/chat", { method: "POST", body: { message: v, chatId: (_a = state.chat) == null ? void 0 : _a.id } });
       state.chat = { id: r.chat_id, messages: r.messages };
       load.textContent = r.message.content;
-      if (r.engine) load.insertAdjacentHTML('beforeend', `<div class="tiny" style="margin-top:6px">${esc(r.engine)}</div>`);
-    } catch (err) { load.textContent = '失败：' + err.message; }
-    box.scrollIntoView({ block: 'end' });
+      if (r.engine) load.insertAdjacentHTML("beforeend", `<div class="tiny" style="margin-top:6px">${esc(r.engine)}</div>`);
+    } catch (err) {
+      load.textContent = "失败：" + err.message;
+    }
+    box.scrollIntoView({ block: "end" });
   }
-  if (e.target.id === 'chat-del' && state.chat) {
-    await api('/api/chat/' + state.chat.id, { method: 'DELETE' });
-    toast('已删除'); go('chat');
+  if (e.target.id === "chat-del" && state.chat) {
+    await api("/api/chat/" + state.chat.id, { method: "DELETE" });
+    toast("已删除");
+    go("chat");
   }
 });
-document.addEventListener('change', (e) => {
-  if (e.target.id === 'chat-pick') {
+document.addEventListener("change", (e) => {
+  if (e.target.id === "chat-pick") {
     const id = e.target.value;
-    if (!id) { state.chat = null; $('#chatbox').innerHTML = ''; return; }
-    api('/api/chat/sessions').then((list) => {
+    if (!id) {
+      state.chat = null;
+      $("#chatbox").innerHTML = "";
+      return;
+    }
+    api("/api/chat/sessions").then((list) => {
       const c = list.find((x) => x.id === id);
-      state.chat = c; paintChat(c);
+      state.chat = c;
+      paintChat(c);
     });
   }
 });
 function paintChat(c) {
-  const box = $('#chatbox');
-  box.innerHTML = (c.messages || []).map((m) => `<div class="msg ${m.role === 'user' ? 'user' : 'bot'}">${esc(m.content)}</div>`).join('') || '<div class="msg bot">开始一段新对话。</div>';
+  const box = $("#chatbox");
+  box.innerHTML = (c.messages || []).map((m) => `<div class="msg ${m.role === "user" ? "user" : "bot"}">${esc(m.content)}</div>`).join("") || '<div class="msg bot">开始一段新对话。</div>';
 }
-
-// ---------------- 设置页 ----------------
 async function renderSettings() {
-  setNav('设置');
-  const p = await api('/api/user/profile');
-  state.user = p.user; state.usage = p.usage;
+  setNav("设置");
+  const p = await api("/api/user/profile");
+  state.user = p.user;
+  state.usage = p.usage;
   const st = state.settings || {};
   return `
     <div class="card">
@@ -1261,7 +1482,7 @@ async function renderSettings() {
       <div class="list-item"><div>⛁ 离线使用</div><div class="pill ok">支持（原 Pro）</div></div>
       <div class="row between" style="margin-top:12px">
         <div class="tiny">录音时实时翻译成双语字幕</div>
-        <label class="row" style="gap:6px"><input type="checkbox" id="bilingual" ${st.bilingual === false ? '' : 'checked'} /></label>
+        <label class="row" style="gap:6px"><input type="checkbox" id="bilingual" ${st.bilingual === false ? "" : "checked"} /></label>
       </div>
       <p class="tiny" style="margin-top:8px">没有任何订阅、配额、内购或兑换码环节：这些能力在本版本里都是直接可用的开关。</p>
     </div>
@@ -1269,19 +1490,19 @@ async function renderSettings() {
       <div class="h2">语音识别（服务端转写）</div>
       <p class="tiny" style="margin-top:-4px">填 Whisper 兼容接口即可让上传/录音自动转写；留空则用浏览器实时识别。</p>
       <div class="grid2">
-        <div class="field"><label>接口地址</label><input class="input" id="asr_base" placeholder="https://api.openai.com/v1" value="${esc(st.asr_base || '')}" /></div>
-        <div class="field"><label>模型</label><input class="input" id="asr_model" placeholder="whisper-1" value="${esc(st.asr_model || '')}" /></div>
+        <div class="field"><label>接口地址</label><input class="input" id="asr_base" placeholder="https://api.openai.com/v1" value="${esc(st.asr_base || "")}" /></div>
+        <div class="field"><label>模型</label><input class="input" id="asr_model" placeholder="whisper-1" value="${esc(st.asr_model || "")}" /></div>
       </div>
-      <div class="field"><label>API Key</label><input class="input" id="asr_key" type="password" placeholder="${st.asr_key_set ? '已设置（留空不变）' : 'sk-…'}" /></div>
+      <div class="field"><label>API Key</label><input class="input" id="asr_key" type="password" placeholder="${st.asr_key_set ? "已设置（留空不变）" : "sk-…"}" /></div>
       <button class="btn" id="save-asr">保存转写配置</button>
     </div>
     <div class="card">
       <div class="h2">大模型（纪要 / 问答 / 翻译增强）</div>
       <div class="grid2">
-        <div class="field"><label>接口地址</label><input class="input" id="llm_base" placeholder="https://api.deepseek.com/v1" value="${esc(st.llm_base || '')}" /></div>
-        <div class="field"><label>模型</label><input class="input" id="llm_model" placeholder="deepseek-chat" value="${esc(st.llm_model || '')}" /></div>
+        <div class="field"><label>接口地址</label><input class="input" id="llm_base" placeholder="https://api.deepseek.com/v1" value="${esc(st.llm_base || "")}" /></div>
+        <div class="field"><label>模型</label><input class="input" id="llm_model" placeholder="deepseek-chat" value="${esc(st.llm_model || "")}" /></div>
       </div>
-      <div class="field"><label>API Key</label><input class="input" id="llm_key" type="password" placeholder="${st.llm_key_set ? '已设置（留空不变）' : 'sk-…'}" /></div>
+      <div class="field"><label>API Key</label><input class="input" id="llm_key" type="password" placeholder="${st.llm_key_set ? "已设置（留空不变）" : "sk-…"}" /></div>
       <button class="btn" id="save-llm">保存大模型配置</button>
     </div>
     <div class="card">
@@ -1289,18 +1510,18 @@ async function renderSettings() {
       <div class="grid2">
         <div class="field"><label>识别语言</label>
           <select class="input" id="lang">
-            ${[['auto', '自动'], ['zh-CN', '中文'], ['en-US', 'English'], ['ja-JP', '日本語'], ['ko-KR', '한국어'], ['fr-FR', 'Français'], ['de-DE', 'Deutsch'], ['es-ES', 'Español']].map(([v, t]) => `<option value="${v}" ${st.lang === v ? 'selected' : ''}>${t}</option>`).join('')}
+            ${[["auto", "自动"], ["zh-CN", "中文"], ["en-US", "English"], ["ja-JP", "日本語"], ["ko-KR", "한국어"], ["fr-FR", "Français"], ["de-DE", "Deutsch"], ["es-ES", "Español"]].map(([v, t]) => `<option value="${v}" ${st.lang === v ? "selected" : ""}>${t}</option>`).join("")}
           </select></div>
         <div class="field"><label>翻译目标语言</label>
           <select class="input" id="target_lang">
-            ${[['zh-CN', '中文'], ['en', 'English'], ['ja', '日本語'], ['ko', '한국어'], ['fr', 'Français'], ['de', 'Deutsch'], ['es', 'Español'], ['ru', 'Русский'], ['ar', 'العربية']].map(([v, t]) => `<option value="${v}" ${st.target_lang === v ? 'selected' : ''}>${t}</option>`).join('')}
+            ${[["zh-CN", "中文"], ["en", "English"], ["ja", "日本語"], ["ko", "한국어"], ["fr", "Français"], ["de", "Deutsch"], ["es", "Español"], ["ru", "Русский"], ["ar", "العربية"]].map(([v, t]) => `<option value="${v}" ${st.target_lang === v ? "selected" : ""}>${t}</option>`).join("")}
           </select></div>
       </div>
       <button class="btn" id="save-lang">保存语言</button>
     </div>
     <div class="card">
       <div class="h2">运行模式</div>
-      <div class="list-item"><div>当前模式</div><div class="pill ${state.mode === 'remote' ? 'ok' : 'warn'}">${state.mode === 'remote' ? '在线（服务端）' : '离线（本机存储）'}</div></div>
+      <div class="list-item"><div>当前模式</div><div class="pill ${state.mode === "remote" ? "ok" : "warn"}">${state.mode === "remote" ? "在线（服务端）" : "离线（本机存储）"}</div></div>
       <div class="field" style="margin-top:10px"><label>后端地址（留空=同源；离线可不管）</label><input class="input" id="api-base" placeholder="https://your-server.example.com" value="${esc(state.apiBase)}" /></div>
       <button class="btn sm" id="save-api">保存并重连</button>
       <p class="tiny" style="margin-top:10px">离线模式下数据只在本浏览器（可导出备份），录音用浏览器实时识别；在线模式可多端同步、服务端转写与分享链接。</p>
@@ -1308,44 +1529,56 @@ async function renderSettings() {
     <div class="card">
       <div class="h2">账号</div>
       <div class="row" style="gap:8px"><button class="btn" id="btn-logout">退出登录</button></div>
-      <p class="tiny" style="margin-top:10px">版本 1.0.0 · 服务端转写 ${state.caps.asr ? '已就绪' : '未配置'} · 大模型 ${state.caps.llm ? '已就绪' : '未配置'}</p>
+      <p class="tiny" style="margin-top:10px">版本 1.0.0 · 服务端转写 ${state.caps.asr ? "已就绪" : "未配置"} · 大模型 ${state.caps.llm ? "已就绪" : "未配置"}</p>
     </div>`;
 }
-
-document.addEventListener('click', async (e) => {
-  if (e.target.id === 'save-asr' || e.target.id === 'save-llm') {
-    const keys = e.target.id === 'save-asr' ? ['asr_base', 'asr_key', 'asr_model'] : ['llm_base', 'llm_key', 'llm_model'];
+document.addEventListener("click", async (e) => {
+  if (e.target.id === "save-asr" || e.target.id === "save-llm") {
+    const keys = e.target.id === "save-asr" ? ["asr_base", "asr_key", "asr_model"] : ["llm_base", "llm_key", "llm_model"];
     const body = {};
-    keys.forEach((k) => { const v = $('#' + k).value.trim(); if (v) body[k] = v; });
+    keys.forEach((k) => {
+      const v = $("#" + k).value.trim();
+      if (v) body[k] = v;
+    });
     try {
-      const r = await api('/api/user/settings', { method: 'PATCH', body });
-      state.settings = r.settings; state.caps = r.caps;
-      toast('已保存'); go('settings');
-    } catch (err) { toast('保存失败：' + err.message); }
+      const r = await api("/api/user/settings", { method: "PATCH", body });
+      state.settings = r.settings;
+      state.caps = r.caps;
+      toast("已保存");
+      go("settings");
+    } catch (err) {
+      toast("保存失败：" + err.message);
+    }
   }
-  if (e.target.id === 'save-lang') {
-    const body = { lang: $('#lang').value, target_lang: $('#target_lang').value };
-    const r = await api('/api/user/settings', { method: 'PATCH', body });
-    state.settings = r.settings; toast('已保存');
+  if (e.target.id === "save-lang") {
+    const body = { lang: $("#lang").value, target_lang: $("#target_lang").value };
+    const r = await api("/api/user/settings", { method: "PATCH", body });
+    state.settings = r.settings;
+    toast("已保存");
   }
-  if (e.target.id === 'bilingual') {
+  if (e.target.id === "bilingual") {
     const body = { bilingual: e.target.checked };
-    try { const r = await api('/api/user/settings', { method: 'PATCH', body }); state.settings = r.settings; } catch {}
-    toast(e.target.checked ? '已开启实时双语' : '已关闭实时双语');
+    try {
+      const r = await api("/api/user/settings", { method: "PATCH", body });
+      state.settings = r.settings;
+    } catch (e2) {
+    }
+    toast(e.target.checked ? "已开启实时双语" : "已关闭实时双语");
   }
-  if (e.target.id === 'save-api') {
-    const v = $('#api-base').value.trim().replace(/\/+$/, '');
+  if (e.target.id === "save-api") {
+    const v = $("#api-base").value.trim().replace(/\/+$/, "");
     state.apiBase = v;
-    localStorage.setItem('lcs.api', v);
+    localStorage.setItem("lcs.api", v);
     await detectMode();
-    toast('已切换到' + (state.mode === 'remote' ? '在线模式' : '离线模式'));
-    go('settings');
+    toast("已切换到" + (state.mode === "remote" ? "在线模式" : "离线模式"));
+    go("settings");
   }
-  if (e.target.id === 'btn-logout') {
-    state.token = ''; state.user = null;
-    localStorage.removeItem('lcs.token');
-    localStorage.removeItem('lcs.local.session');
-    go('login');
+  if (e.target.id === "btn-logout") {
+    state.token = "";
+    state.user = null;
+    localStorage.removeItem("lcs.token");
+    localStorage.removeItem("lcs.local.session");
+    go("login");
   }
 });
 
